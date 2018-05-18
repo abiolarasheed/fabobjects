@@ -1,2 +1,2 @@
 # fabobjects
-Execute remote task from python objects using Fabric.
+A collection of simple python classes for executing remote task using Fabric.
