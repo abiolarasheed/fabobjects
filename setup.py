@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages
+
 DESCRIPTION = "A collection of simple python classes for executing remote task using Fabric."
+
 with open('README.md') as f:
     LONG_DESCRIPTION = f.read()
 
@@ -16,6 +18,7 @@ install_requires = [
     'requests==2.5.1',
     'wsgiref==0.1.2',
 ]
+
 
 setup(
     name='fabobjects',
