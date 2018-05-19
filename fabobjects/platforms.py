@@ -1,4 +1,6 @@
 # coding: utf-8
+from __future__ import unicode_literals
+
 # TODO: Add more distros
 
 __all__ = ['is_debian', 'is_redhat', 'auto_detect_os']
