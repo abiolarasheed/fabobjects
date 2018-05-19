@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# coding: utf-8
 from setuptools import setup, find_packages
 
 DESCRIPTION = "A collection of simple python classes for executing remote task using Fabric."
@@ -10,6 +10,7 @@ with open('README.md') as f:
 install_requires = [
     'argparse==1.2.1',
     'boto==2.36.0',
+    'boto3==1.7.24'
     'cuisine==0.7.4',
     'ecdsa==0.13',
     'Fabric==1.10.1',
