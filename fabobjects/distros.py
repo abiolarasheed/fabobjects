@@ -16,3 +16,15 @@ class BaseServer(object):
 
     def run(self, *args, **kwargs):
         raise NotImplementedError
+
+
+class BSD(BaseServer):
+    pass
+
+
+class Debian(BaseServer):
+    pass
+
+
+class RedHat(BaseServer):
+    pass
