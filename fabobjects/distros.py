@@ -122,3 +122,13 @@ class RedHat(BaseServer):
     @server_host_manager
     def list_installed_package(self):
         self.run("yum list installed")
+
+
+distro = os.environ.get("Distro", "Debian")
+
+if distro == "RedHat":
+    CurrentServer = RedHat
+elif distro == "BSD":
+    CurrentServer = BSD
+else:
+    CurrentServer = Debian
