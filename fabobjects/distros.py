@@ -66,6 +66,30 @@ class BaseServer(object):
         return "{0}({1}@{2})".format(self.__class__.__name__,
                                      self.user, self._host)
 
+    @server_host_manager
+    def create_app(self, app_class):
+        """
+        Creates an application server from the
+        :param app_class: class
+        :return:
+        """
+        attributes = ["cache", "env", "hostfile", "ip", "user", "ssh_port", "password"]
+
+        class ServerApp(self.__class__, app_class):
+            """
+            This is just a server class that get a base os and added new methods from the application class.
+            """
+            def __init__(self, *args, **kwargs):
+                super(ServerApp, self).__init__(*args, **kwargs)
+
+        app = ServerApp(domain_name=self.__domain_name,
+                        hostname=self.__hostname)
+
+        # Set all attributes of the host to the application so that we can control the host from the app and expose some
+        #  of the server methods to the host.
+        [setattr(app, att, getattr(self, att)) for att in attributes]
+        return app
+
     @classmethod
     def _list_funs(cls):
         """
