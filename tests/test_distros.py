@@ -4,13 +4,23 @@ from __future__ import with_statement
 import unittest
 
 from mock import patch
-from fabobjects.utils import _print
+from tests.utils import fake_local, fake_run, fake_sed, fake_sudo, TestServerHostManager
 
-patch('fabobjects.utils.server_host_manager', _print).start()
-patch('fabric.operations.sudo', _print).start()
+patch('fabobjects.utils.server_host_manager', TestServerHostManager).start()
+patch('fabric.operations.local', fake_local).start()
+patch('fabric.operations.run', fake_run).start()
+patch('fabric.contrib.files.sed', fake_sed).start()
+patch('fabric.operations.sudo', fake_sudo).start()
+
 
 # import classes after patching parts that make ssh calls
 from fabobjects.distros import BaseServer, BSD, Debian, RedHat
+
+
+class TestApp(object):
+    """Mocks an application"""
+    def deploy(self):
+        return True
 
 
 class BaseServerTestCase(unittest.TestCase):
@@ -27,6 +37,17 @@ class BaseServerTestCase(unittest.TestCase):
     def test__str__(self):
         self.assertTrue(hasattr(self.base_server, "__str__"))
         self.assertTrue(type(self.base_server.__repr__()) == str)
+
+    def test_create_app(self):
+        app = self.base_server.create_app(TestApp)
+        self.assertTrue(self.base_server.ip == app.ip)
+        self.assertTrue(self.base_server.env == app.env)
+        self.assertTrue(self.base_server.cache == app.cache)
+        self.assertTrue(self.base_server.user == app.user)
+        self.assertTrue(self.base_server.ssh_port == app.ssh_port)
+        self.assertTrue(self.base_server.hostfile == app.hostfile)
+        self.assertTrue(self.base_server.hostname == app.hostname)
+        self.assertTrue(self.base_server.password == app.password)
 
     def test_getattribute(self):
         result = self.base_server.getattribute("__str__")
