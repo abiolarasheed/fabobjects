@@ -1476,13 +1476,3 @@ class RedHat(BaseServer):
     def list_installed_package(self):
         manager = self.get_package_manager()
         self.sudo("{0} list installed|less".format(manager))
-
-
-distro = os.environ.get("Distro", "Debian")
-
-if distro == "RedHat":
-    CurrentServer = RedHat
-elif distro == "BSD":
-    CurrentServer = BSD
-else:
-    CurrentServer = Debian
