@@ -93,7 +93,7 @@ class ServerHostManager(object):
     def __get__(self, instance, owner):
         def wrapper(*args, **kwargs):
             try:
-                with settings(password=instance.get_passwords,
+                with settings(password=instance.get_password,
                               host_string=instance._host,
                               key_filename=instance.env.key_filename,):
                     result = self.func(instance, *args, **kwargs)
