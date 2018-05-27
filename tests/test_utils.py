@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 import unittest
 
 from fabric.api import env
-from fabric.operations import run
+from fabric.operations import run, local
 
 from fabobjects.utils import (log_call, random_password,
                               return_distinct_servers,
@@ -60,14 +60,14 @@ class ServerHostManagerTestCase(unittest.TestCase):
                 self.user = "tester"
                 self.ssh_port = 22
                 self.ip = "127.0.0.1"
-                self.get_passwords = "123456"
+                self.get_password = "123456"
                 self._host = "{0}@{1}:{2}".format(self.user,
                                                   self.ip,
                                                   self.ssh_port)
 
             @server_host_manager
             def test_uptime(self):
-                run('uptime')
+                local('uptime')
                 return True
 
         self.assertTrue(Server().test_uptime())
