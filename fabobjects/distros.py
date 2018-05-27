@@ -68,13 +68,22 @@ class BaseServer(object):
 
     @classmethod
     def _list_funs(cls):
-        list_funcs = [i[0] for i in inspect.getmembers(cls, predicate=inspect.ismethod) if not i[0].startswith('_')]
-        real_list_funcs = [func for func in list_funcs]
-        real_list_funcs.sort()
-        return real_list_funcs
+        """
+        List all functions of this class
+        :return: None
+        """
+        list_funcs = [i[0] for i in inspect.getmembers(cls) if not i[0].startswith('_')]
+        return sorted([func for func in list_funcs])
 
     def getattribute(self, func, *args, **kwargs):
-        """Is good for calling private variables or functions."""
+        """
+        This method helps you call other instance methods and can accept args and kwargs mostly good for call private
+        variables and methods.
+        :param func: function
+        :param args:
+        :param kwargs:
+        :return: function or None
+        """
         if hasattr(self, func):
             if hasattr(getattr(self, func), '__call__'):
                 return getattr(self, func, )(*args, **kwargs)
@@ -82,14 +91,27 @@ class BaseServer(object):
         return None
 
     def get_package_manager(self):
+        """
+        This will return the name of package manager on given os, example ubuntu should return apt or apt-get.
+        :return: string
+        """
         raise NotImplementedError
 
     @server_host_manager
     def run_in_background(self, script):
-        self.sudo("nohup  {0} &".format(script))
+        """
+        Runs command in background
+        :param script: string
+        :return: string
+        """
+        return self.sudo("nohup  {0} &".format(script))
 
     @server_host_manager
     def get_mac_address(self):
+        """
+        Returns the mac address of device/system.
+        :return: string
+        """
         return self.sudo('ifconfig | grep HWaddr').split()[-1]
 
     @server_host_manager
@@ -103,7 +125,7 @@ class BaseServer(object):
         return 'ifconfig {0} | grep inet | grep -v inet6| cut -d ":" -f 2 | cut  -d " " -f 1'.format(interface)
 
     @property
-    def get_passwords(self):
+    def get_password(self):
         with hide("running", 'stdout', ):
             if self.password is not None:
                 return self.password
@@ -1331,24 +1353,37 @@ class BaseServer(object):
 class BSD(BaseServer):
     def __init__(self, *args, **kwargs):
         super(BSD, self).__init__(*args, **kwargs)
+        self.env.shell = "/usr/local/bin/bash -l -c"
 
     @property
     def distro(self):
         return 'BSD'
 
-    def _pkg(self):
-        pass
+    def get_package_manager(self):
+        return "pkg "
 
     @server_host_manager
-    def uninstall(self, package):
-        pass
+    def update(self, ports=False):
+        manager = self.get_package_manager()
+        self.sudo('{0} update'.format(manager))
+        self.sudo('{0} upgrade -y'.format(manager))
+        self.sudo('{0} autoremove -y'.format(manager))
+
+        if ports:
+            self.sudo('portsnap auto')
+
+    @server_host_manager
+    def uninstall_package(self, package):
+        manager = self.get_package_manager()
+        command = "{0} delete {1}".format(self.get_package_manager(), package)
+
+        with settings(warn_only=True):
+            self.sudo(command)
+            self.sudo('{0} autoremove -y'.format(manager))
 
     @server_host_manager
     def is_package_installed(self, package_name):
         pass
-
-    def get_package_manager(self):
-        return self._pkg()
 
     @server_host_manager
     def list_compilers(self):
@@ -1358,20 +1393,40 @@ class BSD(BaseServer):
     def list_installed_packages(self):
         pass
 
+    # set bash for useres
+    def set_shell_to_bash(self, user=None):
+        self.sudo('mount -t fdescfs fdesc /dev/fd && echo "fdesc    /dev/fd        fdescfs        rw    0    0" >> /etc/fstab')
+
+        if user is None:
+            self.sudo('chsh -s /usr/local/bin/bash')
+        else:
+            self.sudo('chsh -s /usr/local/bin/bash {0}'.format(user))
+            self.sudo("'xterm*Background:    black' >> .Xdefaults && echo 'xterm*Foreground:    white' >> .Xdefaults")
+            self.sudo("alias ls='ls -G' >> .bashrc") 
+
+
+class FreeBsd(BSD):
+    @property
+    def distro(self):
+        return 'FreeBsd'
+
+    @server_host_manager
+    def update(self, ports=False):
+        self.sudo('freebsd-update fetch -y')
+        self.sudo('freebsd-update install -y')
+        super(FreeBsd, self).update(ports=ports)
+
 
 class Debian(BaseServer):
     def __init__(self, *args, **kwargs):
         super(Debian, self).__init__(*args, **kwargs)
-
-    def _apt(self):
-        return "apt-get "
 
     @property
     def distro(self):
         return 'Debian'
 
     @server_host_manager
-    def uninstall(self, package):
+    def uninstall_package(self, package):
         uninstall = '{0} --purge remove {1} -y'.\
             format(self.get_package_manager(), package)
         with settings(warn_only=True):
@@ -1379,7 +1434,7 @@ class Debian(BaseServer):
             self.sudo('apt-get autoremove')
 
     def get_package_manager(self):
-        return self._apt()
+        return "apt-get "
 
     @server_host_manager
     def list_compilers(self):
@@ -1393,25 +1448,34 @@ class Debian(BaseServer):
 
 
 class RedHat(BaseServer):
-    def _yum(self):
-        return "yum "
+    def distro(self):
+        return 'RedHat'
 
     def get_package_manager(self):
-        return self._yum()
+        return "yum "
 
     @server_host_manager
-    def uninstall(self, package_name):
-        uninstall = '{0} remove {1} -y'.format(self.get_package_manager(),
-                                              package_name)
+    def install_package(self, package):
+        super(RedHat, self).install_package(package)
+        manager = self.get_package_manager()
+        sudo("{0} clear all".format(manager))
+
+    @server_host_manager
+    def uninstall_package(self, package_name):
+        manager = self.get_package_manager()
+        uninstall = '{0} remove {1} -y'.format(manager, package_name)
         with settings(warn_only=True):
             return self.sudo(uninstall)
 
+    @server_host_manager
     def list_compilers(self):
-        self.sudo("yum list installed '\gcc*\'")
+        manager = self.get_package_manager()
+        self.sudo("{0} list installed '\gcc*\'".format(manager))
 
     @server_host_manager
     def list_installed_package(self):
-        self.run("yum list installed")
+        manager = self.get_package_manager()
+        self.sudo("{0} list installed|less".format(manager))
 
 
 distro = os.environ.get("Distro", "Debian")
