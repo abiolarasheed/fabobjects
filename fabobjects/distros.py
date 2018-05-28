@@ -57,6 +57,7 @@ class BaseServer(object):
         self.user = kwargs.get('user') or env.user
         self.ssh_port = kwargs.get('ssh_port') or '22'
         self.password = kwargs.get('password', environ.get('PASSWORD', None))
+        self._apps = []
 
     def __repr__(self):
         return "<{0}:{1}>".format(self.__class__.__name__,
@@ -65,6 +66,13 @@ class BaseServer(object):
     def __str__(self):
         return "{0}({1}@{2})".format(self.__class__.__name__,
                                      self.user, self._host)
+
+    def __eq__(self, other):
+        return all([
+            self.user == getattr(other, "user", None),
+            self.ip == getattr(other, "ip", None),
+            self.ssh_port == getattr(other, "ssh_port", None),
+        ])
 
     @server_host_manager
     def create_app(self, app_class):
