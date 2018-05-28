@@ -98,6 +98,49 @@ class BaseServer(object):
         [setattr(app, att, getattr(self, att)) for att in attributes]
         return app
 
+    def add_app(self, app):
+        """
+        Add and app to list of apps installed on server.
+        :param app: App instance
+        :return: None
+        """
+        if self == app and not hasattr(self, 'deploy'):
+            if app not in self._apps:
+                self._apps.append(app)
+        else:
+            raise AttributeError
+
+    def remove_app(self, app):
+        """
+        Remove an app from list of apps deployed on server.
+        :param app: App instance
+        :return: None
+        """
+        if self == app and not hasattr(self, 'deploy'):
+            if app in self._apps:
+                self._apps.remove(app)
+        else:
+            raise AttributeError
+
+    def list_apps(self):
+        """
+        List apps deployed on server.
+        :return:
+        """
+        if not hasattr(self, 'deploy'):
+            return self._apps
+        raise AttributeError
+
+    def deploy_all(self):
+        """
+        Deploy all app added to server
+        :return: None
+        """
+        if not hasattr(self, 'deploy'):
+            [app.deploy() for app in self._apps]
+        else:
+            raise AttributeError
+
     @classmethod
     def _list_funs(cls):
         """
