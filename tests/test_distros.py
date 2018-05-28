@@ -4,7 +4,9 @@ from __future__ import with_statement
 import unittest
 
 from mock import patch
-from tests.utils import fake_local, fake_run, fake_sed, fake_sudo, TestServerHostManager
+
+from tests.utils import (fake_local, fake_run, fake_sed,
+                         fake_sudo, TestServerHostManager)
 
 patch('fabobjects.utils.server_host_manager', TestServerHostManager).start()
 patch('fabric.operations.local', fake_local).start()
@@ -21,6 +23,27 @@ class TestApp(object):
     """Mocks an application"""
     def deploy(self):
         return True
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+    def restart(self):
+        pass
+
+    def reload(self):
+        pass
+
+    def expose(self, port=None, interface=None, from_ip=None, proto="tcp", **kwargs):
+        pass
+
+    def connect(self, app):
+        pass
+
+    def configure(self, *args, **kwargs):
+        pass
 
 
 class BaseServerTestCase(unittest.TestCase):
@@ -446,6 +469,33 @@ class BaseServerTestCase(unittest.TestCase):
 
     def test_send_ssh(self):
         pass
+
+    def test__eq__(self):
+        app = self.base_server.create_app(TestApp)
+        self.assertTrue(self.base_server == app)
+
+    def test_add_app(self):
+        app = self.base_server.create_app(TestApp)
+        self.base_server.add_app(app)
+        self.assertIn(app, self.base_server._apps)
+
+    def test_remove_app(self):
+        app = self.base_server.create_app(TestApp)
+        self.base_server.add_app(app)
+        self.assertIn(app, self.base_server._apps)
+        self.base_server.remove_app(app)
+        self.assertNotIn(app, self.base_server._apps)
+
+    def test_list_apps(self):
+        app = self.base_server.create_app(TestApp)
+        self.base_server.add_app(app)
+        self.assertIn(app, self.base_server.list_apps())
+
+    def test_deploy_all(self):
+        server = self.base_server
+        app = server.create_app(TestApp)
+        server.add_app(app)
+        self.assertIsNone(server.deploy_all())
 
 
 class BSDTestCase(unittest.TestCase):
