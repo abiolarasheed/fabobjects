@@ -270,10 +270,6 @@ class BaseServer(object):
             return False
 
     @server_host_manager
-    def __install(self, service_name):
-        self.install_package(service_name)
-
-    @server_host_manager
     def service(self, *args):
         cmd = ' '.join([arg for arg in args])
         cmd = 'service ' + cmd
@@ -332,15 +328,15 @@ class BaseServer(object):
 
     @server_host_manager
     def used_memory(self):
-        return self.memoryused()[87:94].strip()
+        return self.current_memory_usage()[87:94].strip()
 
     @server_host_manager
     def sys_memory(self):
-        return self.memoryused()[76:83].strip()
+        return self.current_memory_usage()[76:83].strip()
 
     @server_host_manager
     def free_memory(self):
-        return self.memoryused()[98:105].strip()
+        return self.current_memory_usage()[98:105].strip()
 
     @server_host_manager
     def cpu_number(self):
@@ -360,7 +356,6 @@ class BaseServer(object):
         self.install_package('npm')
         self.install_package('-g bower')
         self.sudo('chown -R {user} /usr/local && ln -s /usr/bin/nodejs /usr/bin/node'.format(user=self.user))
-        self.install_package('nodejs-legacy')
 
     @server_host_manager
     def _get_home_dir(self, user=None):
@@ -390,7 +385,7 @@ class BaseServer(object):
             hostname=hostname or env.get('hostname') or 'webgaff.com',
         )
 
-        if not exists('mkdir {0}certs'.format(cert_dir)):
+        if not self.exists('mkdir {0}certs'.format(cert_dir)):
             self.sudo('mkdir {0}certs'.format(cert_dir))
 
         crt = "cp server.crt {0}certs/%(hostname)s.crt".format(cert_dir)
@@ -454,7 +449,7 @@ class BaseServer(object):
     def __set_hostname(self, hostname=None, domain_name=None):
         """Set server's hostname."""
         opts = dict(
-            public_ip=self.getPublicIp() or self.env.server_ip or error("env.public_ip must be set"),
+            public_ip=self.ip or self.env.server_ip or error("env.public_ip must be set"),
             hostname=hostname or self.env.hostname or error("env.hostname must be set"),
             domainname=domain_name or self.env.domain_name or error("env.domain_name must be set"),
         )
@@ -478,10 +473,8 @@ class BaseServer(object):
             hostname, domain_name, fqdn = self.fqdn(hostname=hostname, domain_name=domain_name, fqdn=False)
             if all([hostname, domain_name]):
                 self.__set_kernel_domain_name(hostname=hostname, domain_name=domain_name)
-                self.__set_hostname(hostname = hostname, domain_name = domain_name)
-                self.service('dns-clean restart')
+                self.__set_hostname(hostname=hostname, domain_name=domain_name)
                 self.sudo('hostname {0}'.format(hostname))
-                self.ip = fqdn
                 return True
         raise RuntimeError('Your Server has no domain name or hostname and none entered')
 
@@ -492,7 +485,7 @@ class BaseServer(object):
         try:
             self.sed('/etc/network/interfaces', text_before, text_after, use_sudo=True)
         except:
-            self.echo(text_before, '/etc/network/interfaces', use_sudo=True, )
+            self.echo(text_before, '/etc/network/interfaces', use_sudo=True)
 
     @server_host_manager
     def ip_spoofing_guard(self):
@@ -514,13 +507,13 @@ class BaseServer(object):
             pass
 
     @server_host_manager
-    def harden_host_files(self):
+    def harden_host_files(self, hosts_allowed=list()):
         # Back up files
         self.echo('umask 077', to='/etc/bash.bashrc', use_sudo=True, append=True)
         self.sudo('cp /etc/hosts.allow /etc/hosts.allow.backup.{now}'.format(now=now))
         self.sudo('cp /etc/hosts.deny /etc/hosts.deny.backup.{now}'.format(now=now))
 
-        for host in self.env.hosts_allowed:
+        for host in hosts_allowed:
             if host != self.ip:
                 self.sudo('echo \'sshd: {host}\n\' >> /etc/hosts.allow'.format(host=host))
         self.echo('ALL: PARANOID', to='/etc/hosts.deny', use_sudo=True, append=True)
@@ -562,17 +555,20 @@ class BaseServer(object):
 
     @server_host_manager
     def harden_sshd(self, user=None):
-        """Security harden sshd."""
+        """Security harden ssh server."""
+        user = user or self.user
+        self.add_sshgroup(user=user)
         users = self.list_users()
+
         if 'git' in users:
-            sshusers = 'sshuser git'
+            ssh_users = 'sshuser git'
         else:
-            sshusers = 'sshuser'
+            ssh_users = 'sshuser'
 
         self.sudo('cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup.{now}'.format(now=now))
 
         # start a fresh remove all current entries
-        self.sudo('echo \'AllowGroups {0}\' > /etc/ssh/sshd_config'.format(sshusers))
+        self.sudo('echo \'AllowGroups {0}\' > /etc/ssh/sshd_config'.format(ssh_users))
         self.sudo('echo \'AllowTcpForwarding no\' >>  /etc/ssh/sshd_config')
         self.sudo('echo \'Port 22\' >>  /etc/ssh/sshd_config')
         self.sudo('echo \'Protocol 2\' >>  /etc/ssh/sshd_config')
@@ -685,8 +681,6 @@ class BaseServer(object):
 
     @server_host_manager
     def install_psad(self):
-        # https://www.thefanclub.co.za/how-to/how-install-psad-intrusion-detection-ubuntu-1204-lts-server
-        # https://www.thefanclub.co.za/how-to/how-secure-ubuntu-1604-lts-server-part-1-basics
         self.install_package('psad')
         self.sudo('iptables -A INPUT -j LOG')
         self.sudo('iptables -A FORWARD -j LOG')
@@ -702,25 +696,21 @@ class BaseServer(object):
         self.sudo('chsh -s /usr/bin/rssh {0}'.format(user))
 
     @server_host_manager
-    def motd_setup(self):
+    def setup_motd(self, motd_file):
         """This is message that displays when you login to ssh."""
-        self.sudo("apt-get remove --purge landscape-common")
+        try:
+            # This if for ubuntu
+            self.uninstall_package("landscape-common")
+        except:
+            pass
         self.sudo("touch /etc/motd || exit")
         self.sudo("cp /etc/motd /etc/motd.old", quiet=False)
         self.sudo("cp /etc/issue.net /etc/issue.net.old")
-        self.put(local_path="{0}/ssh/issue.net".format(self.env.project_deploy_conf), remote_path="/etc/",
-                 use_sudo=True)
-        self.put(local_path="{0}/ssh/motd".format(self.env.project_deploy_conf), remote_path="/etc/", use_sudo=True)
+        self.put(local_path=motd_file, remote_path="/etc/", use_sudo=True)
+        self.put(local_path=motd_file, remote_path="/etc/", use_sudo=True)
 
     @server_host_manager
-    def rkhunter_scan(self):
-        self.sudo('chkrootkit')
-        self.sudo('rkhunter --update')
-        self.sudo('rkhunter --propupd')
-        self.sudo('yes | sudo rkhunter --check --ns')
-
-    @server_host_manager
-    def rkhunter_chkrootkit(self):
+    def install_rkhunter_n_chkrootkit(self, email):
         self.install_postfix()
         self.install_package('rkhunter chkrootkit')
         self.update()
@@ -734,9 +724,9 @@ class BaseServer(object):
         self.sudo("echo \"CRON_DB_UPDATE='true'\" >> /etc/default/rkhunter")
         # update files properties DB every time you run apt-get install, this
         # prevents warnings every time a new version of some package is installed
-        append('/etc/default/rkhunter', '# Update file properties database after running apt-get install',
+        self.append('/etc/default/rkhunter', '# Update file properties database after running apt-get install',
                use_sudo=True)
-        append('/etc/default/rkhunter', 'APT_AUTOGEN="yes"', use_sudo=True)
+        self.append('/etc/default/rkhunter', 'APT_AUTOGEN="yes"', use_sudo=True)
 
         # ignore some Ubuntu specific files
         self.sudo("mkdir ~/bin")
@@ -746,7 +736,7 @@ class BaseServer(object):
             self.sudo("echo \"/usr/local/bin/rkhunter --versioncheck \
              /usr/local/bin/rkhunter --update /usr/local/bin/rkhunter \
               --cronjob --report-warnings-only | /usr/bin/mail \
-                -s \"rkhunter output\" {0}\" >> rkhunterscript".format(self.env.email))
+                -s \"rkhunter output\" {0}\" >> rkhunterscript".format(email))
             self.sudo('chmod 750 rkhunterscript')
             # self.sudo('crontab -e')
             self.sudo("echo \"10 3 * * * rkhunterscript -c --cronjob\" >> mycron")
@@ -754,15 +744,19 @@ class BaseServer(object):
         self.rkhunter_scan()
 
     @server_host_manager
-    def setup_logwatch(self):
-        """Install and Configure Logwatch."""
+    def rkhunter_scan(self):
+        self.sudo('chkrootkit')
+        self.sudo('rkhunter --update')
+        self.sudo('rkhunter --propupd')
+        self.sudo('yes | sudo rkhunter --check --ns')
+
+    @server_host_manager
+    def setup_logwatch(self, email):
+        """Install and Configure Log watch."""
         self.update()
         with settings(warn_only=True):
             self.install_package('logwatch')
-        with settings(warn_only=True):
             self.sudo('mkdir /var/cache/logwatch')
-
-        with settings(warn_only=True):
             self.sudo('cp /usr/share/logwatch/default.conf/logwatch.conf /etc/logwatch/conf')
 
         self.sed('/etc/logwatch/conf/logwatch.conf',
@@ -782,7 +776,7 @@ class BaseServer(object):
 
         self.sed('/etc/logwatch/conf/logwatch.conf',
                  'MailTo = root',
-                 'MailTo = {0}'.format(getattr(self.env, 'email', 'sysadmin@webgaff.com')),
+                 'MailTo = {0}'.format(email),
                  use_sudo=True)
 
         self.sed('/etc/logwatch/conf/logwatch.conf',
@@ -817,8 +811,8 @@ class BaseServer(object):
         self.sudo('chmod -R go-rwx /root')
 
     @server_host_manager
-    def harden_server(self, user=None, passwd=None, hostname=None, domain_name=None, host_ip=None):
-        if not all([user, passwd, hostname, domain_name]):
+    def harden_server(self, user=None, passwd=None, hostname=None, domain_name=None, host_ip=None, email=None):
+        if not all([user, passwd, hostname, domain_name, email]):
             raise RuntimeError('You Have to passed in all needed variables')
 
         self.change_named_servers()
@@ -847,8 +841,8 @@ class BaseServer(object):
         self.setup_logwatch()
         self.set_up_tiger()
         self.clean_manager()
-        self.motd_setup()
-        self.rkhunter_chkrootkit()
+        self.setup_motd()
+        self.install_rkhunter_n_chkrootkit(email)
         self.enable_process_accounting()
 
         self.harden_sshd(user=user)
@@ -898,25 +892,26 @@ class BaseServer(object):
         self.sudo('locale-gen {0}'.format(locale))
         self.sudo('dpkg-reconfigure -f noninteractive locales')
 
+    def local_user_home(self):
+        return self.local('eval echo ~$USER', capture=True)
+
     @server_host_manager
     def create_user(self, user, home=None, passwd=None, no_home=False):
-        """Create new User account."""
+        """Create new user account."""
         if home is None:
             home = '/home/{0}'.format(user)
 
         if no_home:
             command = 'useradd {0}'.format(user)
+
         else:
             command = 'useradd -m -d {0} {1}'.format(home, user)
 
         if passwd is not None:
             command = command.replace('useradd', 'useradd -p {0}'.format(passwd))
 
-        with hide("running", 'stdout','stdin'):
+        with hide('running', 'stdout', 'stderr'):
             self.sudo(command)
-
-    def local_user_home(self):
-        return local('eval echo ~$USER', capture=True)
 
     @server_host_manager
     def change_password(self, user, pswd):
@@ -930,11 +925,12 @@ class BaseServer(object):
         self.sudo(command)
 
     @server_host_manager
-    def create_restricted_user(self, user, home=None, shell=True):
+    def create_restricted_user(self, user, passwd, home=None, shell=True):
         """Create user with limited shell access."""
         if home is None:
             home = '/home/{0}'.format(user)
-        self.sudo('useradd -m -d {0} -s /usr/bin/rssh {1}'.format(home, user))
+
+        self.sudo('useradd -m -p {2} -d {0} -s /usr/bin/rssh {1}'.format(home, user, passwd))
         self.sudo('passwd {0}'.format(user))
 
         if shell:
@@ -947,7 +943,10 @@ class BaseServer(object):
         if user is None:
             user = self.user
         with settings(warn_only=True):
-            self.sudo('addgroup sshuser')
+            try:
+                self.sudo('addgroup sshuser')
+            except:
+                pass
         self.sudo('adduser {user} sshuser'.format(user=user))
 
     @server_host_manager
@@ -978,7 +977,7 @@ class BaseServer(object):
         return result
 
     @server_host_manager
-    def memoryused(self):
+    def current_memory_usage(self):
         return self.sudo('free -hm')
 
     @server_host_manager
@@ -1000,17 +999,17 @@ class BaseServer(object):
     @server_host_manager
     def list_users_short_version(self):
         result = self.run('ps aux | awk \'{ print $1 }\' | sed \'1 d\' | sort | uniq')
-        return result.split()
+        return sorted(result.split())
 
     @server_host_manager
     def list_users(self):
         result = self.run('cut -d: -f 1 /etc/passwd')
-        return result.split()
+        return sorted(result.split())
 
     @server_host_manager
     def list_groups(self):
         result = self.run('cut -d: -f 1 /etc/group')
-        return result.split()
+        return sorted(result.split())
 
     @server_host_manager
     def get_general_info(self):
@@ -1051,7 +1050,7 @@ class BaseServer(object):
             action = 'touch  ' if make else 'rm -rf '
         else:
             action = 'mkdir -p ' if make else 'rm -r -rf '
-        if exists(path, use_sudo=use_sudo, verbose=verbose):
+        if self.exists(path, use_sudo=use_sudo, verbose=verbose):
             if not make:
                 getattr(self, command)(action + path)
             else:
@@ -1065,12 +1064,6 @@ class BaseServer(object):
     @server_host_manager
     def clone_repo(self, repo):
         self.run('git clone {0}'.format(repo))
-
-    @server_host_manager
-    def add_keys_to_git(self, user, working_dir, repo):
-        command = 'ssh-copy-id {0}'.format(repo)
-        with cd(working_dir):
-            self.sudo(command, user=user)
 
     @server_host_manager
     def create_n_put_keys(self):
@@ -1167,10 +1160,10 @@ class BaseServer(object):
     def push_key(self):
         """Push user's ssh-key to server."""
         key_file = '/tmp/%s.pub' % env.user
-        if exists(key_file, use_sudo=False, verbose=False):
+        if self.exists(key_file, use_sudo=False, verbose=False):
             self.run('rm %s' % key_file)
 
-        if not exists('~/.ssh', use_sudo=False, verbose=False):
+        if not self.exists('~/.ssh', use_sudo=False, verbose=False):
             self.create_ssh_key()
 
         self.put(local_path='~/.ssh/id_rsa.pub', remote_path=key_file)
@@ -1198,7 +1191,7 @@ class BaseServer(object):
 
         rsa = join(ssh_dir, 'id_rsa')
 
-        if exists(rsa, use_sudo=True):
+        if self.exists(rsa, use_sudo=True):
             print("rsa key exists, skipping creating")
 
         else:
@@ -1270,6 +1263,10 @@ class BaseServer(object):
             return append(filename, text, use_sudo=use_sudo,
                           partial=partial, escape=escape, shell=shell)
 
+    def local(self, command, capture=False, shell=None):
+        """Run a command on the local system."""
+        self.local(command, capture=capture, shell=shell)
+
     @server_host_manager
     def sudo(self, command, show=True, **kwargs):
         """ Runs a shell command on the remote server. """
@@ -1280,6 +1277,20 @@ class BaseServer(object):
                 command = 'sudo ' + command
                 return local(command, **kwargs)
             return sudo(command, **kwargs)
+
+    def exists(self, path, use_sudo=False, verbose=False):
+        """
+        Return True if given path exists on the current remote host.
+
+        If ``use_sudo`` is True, will use `sudo` instead of `run`.
+
+        `exists` will, by default, hide all output (including the run line, stdout,
+        stderr and any warning resulting from the file not existing) in order to
+        avoid cluttering output. You may specify ``verbose=True`` to change this
+        behavior.
+        """
+        return exists(path, use_sudo=use_sudo, verbose=verbose)
+
 
     @server_host_manager
     def comment(self, filename, regex, use_sudo=False, char='#', backup='.bak',
@@ -1305,33 +1316,35 @@ class BaseServer(object):
             return prompt(text, key=key, default=default, validate=validate)
 
     @server_host_manager
-    def put(self, command, show=True, **kwargs):
+    def put(self, local_path=None, remote_path=None, use_sudo=False,
+            mirror_local_mode=False, mode=None, use_glob=True, temp_dir=""):
         """
         Uploads files to remote server
-        :param command:
-        :param show:
-        :param kwargs:
+        :param local_path:
+        :param remote_path:
+        :param use_sudo:
+        :param mirror_local_mode:
+        :param mode:
+        :param use_glob:
+        :param temp_dir:
         :return:
         """
-        if show:
-            self.print_command(command)
         with hide("running"):
-            if self.ip in ['localhost', '127.0.0.1']:
-                command = 'sudo ' + command
-                return local(command, **kwargs)
-            return put(command, **kwargs)
+            return put(local_path=local_path, remote_path=remote_path, use_sudo=use_sudo,
+                       mirror_local_mode=mirror_local_mode, mode=mode,
+                       use_glob=use_glob, temp_dir=temp_dir)
 
     def run_as_app_user(self, *args, **kwargs):
         """This should be implemented by apps inheriting this server class."""
         raise NotImplementedError
 
     @server_host_manager
-    def get(self, *args, **kwargs):
-        """ Runs a shell command on the remote server.
+    def get(self, remote_path, local_path=None, use_sudo=False, temp_dir=""):
+        """ Download one or more files from a remote host.
         get(remote_path, local_path=None, use_sudo=False, temp_dir="")
         """
         with hide("running"):
-            get(*args, **kwargs)
+            get(remote_path, local_path=local_path, use_sudo=use_sudo, temp_dir=temp_dir)
 
     @server_host_manager
     def sed(self, filename, before, after, limit='',
@@ -1400,12 +1413,12 @@ class BaseServer(object):
 
             remote_user_authorized_keys_dir = os.path.dirname(remote_user_authorized_keys)
             with settings(warn_only=True):
-                if not exists(remote_user_authorized_keys_dir):
+                if not self.exists(remote_user_authorized_keys_dir):
                     self.sudo('mkdir -p {0}'.format(remote_user_authorized_keys_dir))
                     self.sudo('chmod 700 {0}'.format(remote_user_authorized_keys_dir))
 
             with settings(warn_only=True):
-                if not exists(remote_user_authorized_keys):
+                if not self.exists(remote_user_authorized_keys):
                     self.sudo('touch {0}'.format(remote_user_authorized_keys))
                     self.sudo('chown {0}:{0} {1}'.format(user, remote_user_authorized_keys))
                     self.sudo('chmod 600 {0}'.format(remote_user_authorized_keys))
@@ -1502,8 +1515,7 @@ class Debian(BaseServer):
 
     @server_host_manager
     def uninstall_package(self, package):
-        uninstall = '{0} --purge remove {1} -y'.\
-            format(self.get_package_manager(), package)
+        uninstall = '{0} --purge remove {1} -y'.format(self.get_package_manager(), package)
         with settings(warn_only=True):
             self.sudo(uninstall)
             self.sudo('apt-get autoremove')
@@ -1538,7 +1550,7 @@ class RedHat(BaseServer):
     @server_host_manager
     def uninstall_package(self, package_name):
         manager = self.get_package_manager()
-        uninstall = '{0} remove {1} -y'.format(manager, package_name)
+        uninstall = '{0} remove --purge {1} -y'.format(manager, package_name)
         with settings(warn_only=True):
             return self.sudo(uninstall)
 
