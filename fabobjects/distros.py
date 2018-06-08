@@ -9,14 +9,12 @@ import inspect
 from os.path import join
 from os import environ
 from urllib import urlopen
+
 from fabric.contrib.files import sed
 from fabric.contrib.files import exists
 from fabric.contrib.files import append
 from fabric.contrib.files import comment
 from fabric.contrib.files import uncomment
-from cuisine import dir_ensure
-from cuisine import file_write
-from cuisine import text_strip_margin
 from fabric.utils import error
 from fabric.api import sudo
 from fabric.api import run
@@ -26,19 +24,32 @@ from fabric.api import get
 from fabric.api import prompt
 from fabric.api import hide
 from fabric.api import cd
+from fabric.api import lcd
 from fabric.api import settings
 from fabric.api import local
 from fabric.api import execute
 from fabric.colors import yellow
 from fabric.colors import blue
 from fabric.colors import red
-from fabric.colors import green
 
 from .settings import env_settings as env
 from .utils import _print
 from .utils import server_host_manager
 
 now = str(datetime.datetime.now()).replace(' ', '-')
+
+# stolen from cuisine
+SHELL_ESCAPE = " '\";`|"
+
+
+# stolen from cuisine
+def shell_safe(path):
+    """
+    Makes sure that the given path/string is escaped and safe for shell
+    :param path:
+    :return: string
+    """
+    return "".join([("\\" + _) if _ in SHELL_ESCAPE else _ for _ in path])
 
 
 class BaseServer(object):
@@ -73,6 +84,14 @@ class BaseServer(object):
             self.ip == getattr(other, "ip", None),
             self.ssh_port == getattr(other, "ssh_port", None),
         ])
+
+    @server_host_manager
+    def cd(self, *args, **kwargs):
+        """A wrapper around Fabric's cd to change the local directory if
+        mode is local"""
+        if self.ip in ['127.0.0.1', 'localhost']:
+            return lcd(*args, **kwargs)
+        return cd(*args, **kwargs)
 
     @server_host_manager
     def create_app(self, app_class):
@@ -173,31 +192,8 @@ class BaseServer(object):
         raise NotImplementedError
 
     @server_host_manager
-    def run_in_background(self, script):
-        """
-        Runs command in background
-        :param script: string
-        :return: string
-        """
-        return self.sudo("nohup  {0} &".format(script))
-
-    @server_host_manager
-    def get_mac_address(self):
-        """
-        Returns the mac address of device/system.
-        :return: string
-        """
-        return self.sudo('ifconfig | grep HWaddr').split()[-1]
-
-    @server_host_manager
     def get_installation_date(self):
-        return ' '.join(self.sudo('ls -al /var/log/installer/syslog').split()[5:-1])
-
-    def get_ip_command(self, interface=None):
-        """Get ip address of an interface"""
-        if not interface:
-            interface = 'eth0'
-        return 'ifconfig {0} | grep inet | grep -v inet6| cut -d ":" -f 2 | cut  -d " " -f 1'.format(interface)
+        return ' '.join(self.sudo('ls -lt /var/log/installer').split()[-4:-1])
 
     @property
     def get_password(self):
@@ -226,11 +222,11 @@ class BaseServer(object):
 
     @property
     def os_name(self):
-        return self.run("python -c 'import platform ; print platform.dist()'")
+        return self.run('lsb_release -a').split('\n')[1].split(':\t')[1]
 
     @property
     def os(self):
-        return self.run("python -c 'import platform ; print platform.dist()[0]'")
+        return self.run('lsb_release -a').split('\n')[0].split(':\t')[1]
 
     @server_host_manager
     def clear_screen(self):
@@ -238,17 +234,22 @@ class BaseServer(object):
 
     @server_host_manager
     def ping(self):
-        response = os.system("ping -c 1 " + self.hostname)
-        if response == 0:
-            return True
-        else:
+        try:
+            response = self.local("ping -c 4 {0}".format(self.hostname), capture=True)
+            ping_count = response.split('\n')[-2].split(', ')[1].split(' ')[0]
+
+            if ping_count == '4':
+                return True
+            else:
+                return False
+        except:
             return False
 
     @server_host_manager
     def kill_process_by(self, user=None):
         if user is None:
             user = self.run('whoami', show=False)
-        self.sudo('pkill -u %s' % user)
+        self.sudo('killall -u {0}'.format(user))
 
     @server_host_manager
     def install_package(self, package):
@@ -257,6 +258,13 @@ class BaseServer(object):
         command = "{0} install {1} -y".format(manager, package)
         with settings(warn_only=True):
             self.sudo(command)
+
+    @server_host_manager
+    def uninstall_package(self, package):
+        uninstall = '{0} --purge remove {1} -y'.format(self.get_package_manager(), package)
+        with settings(warn_only=True):
+            self.sudo(uninstall)
+            self.sudo('apt-get autoremove')
 
     @server_host_manager
     def is_package_installed(self, package_name):
@@ -296,25 +304,6 @@ class BaseServer(object):
         self.service('{0} status'.format(service_name))
 
     @server_host_manager
-    def configure_supervisor(self, commands):
-        self.put(green('Configuring the supervisor process'))
-        conf = '\n|'.join(commands)
-        supervisor_conf = text_strip_margin('''|{0}|'''.format(conf))
-        file_write('/etc/supervisor/conf.d/redacted.conf', supervisor_conf)
-
-    @server_host_manager
-    def reread_supervisor_conf(self):
-        self.supervisorctl('reread')
-        self.supervisorctl('update')
-        self.supervisorctl('status')
-
-    @server_host_manager
-    def supervisorctl(self, command):
-        command = 'supervisorctl %s' % command
-        with settings(warn_only=True):
-            self.sudo(command)
-
-    @server_host_manager
     def list_files_with_no_owner(self, dir_name='/'):
         return self.sudo("find {0} -xdev \( -nouser -o -nogroup \) -print".format(dir_name))
 
@@ -343,14 +332,6 @@ class BaseServer(object):
         return self.sudo('grep processor /proc/cpuinfo | wc -l')
 
     @server_host_manager
-    def get_ip(self, interface='eth0'):
-        """Get ip address of an interface"""
-        if interface is None:
-            interface = 'eth0'
-        command = 'ifconfig {0} | grep inet | grep -v inet6| cut -d ":" -f 2 | cut  -d " " -f 1'.format(interface)
-        self.run(command)
-
-    @server_host_manager
     def install_bower(self):
         self.install_package('nodejs')
         self.install_package('npm')
@@ -373,34 +354,35 @@ class BaseServer(object):
             home_dir = self._get_home_dir(user=user)[0]
             key_path = os.path.join(home_dir, '.ssh/id_rsa.pub')
 
+        if not self.exists(key_path):
+            self.create_ssh_key()
+            self.show_public_key(key_path=key_path)
+
         command = 'cat {0}'.format(key_path)
-        self.run_as_user(command, user=user)
+        return self.run_as_user(command, user=user)
 
     @server_host_manager
-    def generate_self_signed_ssl(self, hostname=None, cert_dir='/tmp/'):
+    def generate_self_signed_ssl(self, hostname=None, cert_dir='/tmp/',
+                                 country_iso=None, state=None, city=None,
+                                 company_name=None):
         """
-        Generate self-signed SSL certificates and provide them to Nginx.
+        Generate self-signed SSL certificates.
         """
-        opts = dict(
-            hostname=hostname or env.get('hostname') or 'webgaff.com',
-        )
+        if not all([hostname, country_iso, state, city, company_name]):
+            raise KeyError
 
-        if not self.exists('mkdir {0}certs'.format(cert_dir)):
-            self.sudo('mkdir {0}certs'.format(cert_dir))
+        full_cert_dir = os.path.join(cert_dir, "certs")
 
-        crt = "cp server.crt {0}certs/%(hostname)s.crt".format(cert_dir)
-        key = "cp server.key {0}certs/%(hostname)s.key".format(cert_dir)
+        if not self.exists('mkdir {0}'.format(full_cert_dir)):
+            self.sudo('mkdir -p {0}'.format(full_cert_dir))
 
-        with hide("running", 'stdout', ):
-            with cd('/tmp/'):
-                self.sudo('openssl genrsa -des3 -out server.key 2048')
-                self.sudo('openssl req -new -key server.key -out server.csr')
-                self.sudo('cp server.key server.key.passwordcp server.key server.key.password')
-                self.sudo('openssl rsa -in server.key.password -out server.key')
-                self.sudo('openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt')
-
-                self.sudo(crt % opts)
-                self.sudo(key % opts)
+        with hide("everything"):
+            with self.cd(full_cert_dir):
+                self.sudo("openssl req -newkey rsa:2048 -nodes -keyout "
+                          "{0}.key -x509 -days 365 -out {0}.crt "
+                          "-subj '/C={1}/ST={2}/L={3}/O={4}/"
+                          "CN={0}'".format(hostname, country_iso, state, city, company_name))
+            return full_cert_dir
 
     @server_host_manager
     def disable_root_login(self):
@@ -493,16 +475,16 @@ class BaseServer(object):
         self.sudo('echo \'nospoof on\' >> /etc/host.conf')
 
     @server_host_manager
-    def limit_sudo_users(self):
+    def limit_sudo_users(self, user_group="admin"):
         try:
-            self.sudo('groupadd admin')
+            self.sudo('groupadd {}'.format(user_group))
         except SystemExit:
             pass
         finally:
-            self.sudo('usermod -a -G admin {0}'.format(self.user))
+            self.sudo('usermod -a -G {0} {1}'.format(user_group, self.user))
 
         try:
-            self.sudo('dpkg-statoverride --update --add root admin 4750 /bin/su')
+            self.sudo('dpkg-statoverride --update --add root {0} 4750 /bin/su'.format(user_group))
         except SystemExit:
             pass
 
@@ -661,11 +643,6 @@ class BaseServer(object):
         self.sudo('sysctl -p')
 
     @server_host_manager
-    def disable_usb_stick_to_detect(self):
-        self.sudo('/etc/modprobe.d/no-usb')
-        self.sudo('install usb-storage /bin/true')
-
-    @server_host_manager
     def check_opened_ports(self):
         self.run('netstat -tulpn')
 
@@ -699,10 +676,10 @@ class BaseServer(object):
     def setup_motd(self, motd_file):
         """This is message that displays when you login to ssh."""
         try:
-            # This if for ubuntu
             self.uninstall_package("landscape-common")
         except:
             pass
+
         self.sudo("touch /etc/motd || exit")
         self.sudo("cp /etc/motd /etc/motd.old", quiet=False)
         self.sudo("cp /etc/issue.net /etc/issue.net.old")
@@ -725,13 +702,13 @@ class BaseServer(object):
         # update files properties DB every time you run apt-get install, this
         # prevents warnings every time a new version of some package is installed
         self.append('/etc/default/rkhunter', '# Update file properties database after running apt-get install',
-               use_sudo=True)
+                    use_sudo=True)
         self.append('/etc/default/rkhunter', 'APT_AUTOGEN="yes"', use_sudo=True)
 
         # ignore some Ubuntu specific files
         self.sudo("mkdir ~/bin")
 
-        with cd('~/bin'):
+        with self.cd('~/bin'):
             self.sudo("echo \"#!/bin/sh\" >> rkhunterscript")
             self.sudo("echo \"/usr/local/bin/rkhunter --versioncheck \
              /usr/local/bin/rkhunter --update /usr/local/bin/rkhunter \
@@ -934,7 +911,7 @@ class BaseServer(object):
         self.sudo('passwd {0}'.format(user))
 
         if shell:
-            with cd(home):
+            with self.cd(home):
                 with settings(user=user):
                     self.create_ssh_key()
 
@@ -1175,7 +1152,7 @@ class BaseServer(object):
     def create_ssh_key(self):
         self.run('mkdir .ssh')
         self.run('chmod 700 .ssh')
-        self.run('ssh-keygen -t rsa -b 4096')
+        self.run('ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""')
         self.run('chmod 600 .ssh/id_rsa')
         self.run('touch .ssh/authorized_keys')
         self.run('chmod 600 .ssh/authorized_keys')
@@ -1263,9 +1240,9 @@ class BaseServer(object):
             return append(filename, text, use_sudo=use_sudo,
                           partial=partial, escape=escape, shell=shell)
 
-    def local(self, command, capture=False, shell=None):
+    def local(self, command, capture=True, shell=None):
         """Run a command on the local system."""
-        self.local(command, capture=capture, shell=shell)
+        return local(command, capture=capture, shell=shell)
 
     @server_host_manager
     def sudo(self, command, show=True, **kwargs):
@@ -1278,6 +1255,7 @@ class BaseServer(object):
                 return local(command, **kwargs)
             return sudo(command, **kwargs)
 
+    @server_host_manager
     def exists(self, path, use_sudo=False, verbose=False):
         """
         Return True if given path exists on the current remote host.
@@ -1290,7 +1268,6 @@ class BaseServer(object):
         behavior.
         """
         return exists(path, use_sudo=use_sudo, verbose=verbose)
-
 
     @server_host_manager
     def comment(self, filename, regex, use_sudo=False, char='#', backup='.bak',
@@ -1306,9 +1283,36 @@ class BaseServer(object):
             uncomment(filename, regex, use_sudo=use_sudo, char=char, backup=backup,
                       shell=shell)
 
+    # stolen from cuisine
+    @server_host_manager
+    def dir_exists(self, location):
+        """Tells if there is a remote directory at the given location."""
+        return self.run('test -d %s && echo OK ; true' % (shell_safe(location))).endswith("OK")
+
+    # stolen from cuisine
     @server_host_manager
     def dir_ensure(self, location, recursive=False, mode=None, owner=None, group=None):
-        dir_ensure(location, recursive=recursive, mode=mode, owner=owner, group=group)
+        """Ensures that there is a remote directory at the given location,
+        optionally updating its mode/owner/group.
+
+        If we are not updating the owner/group then this can be done as a single
+        ssh call, so use that method, otherwise set owner/group after creation."""
+        if not self.dir_exists(location):
+            self.run('mkdir %s %s' % (recursive and "-p" or "", shell_safe(location)))
+        if owner or group or mode:
+            self.dir_attribs(location, owner=owner, group=group, mode=mode, recursive=recursive)
+
+    # stolen from cuisine
+    @server_host_manager
+    def dir_attribs(self, location, mode=None, owner=None, group=None, recursive=False):
+        """Updates the mode/owner/group for the given remote directory."""
+        recursive = recursive and "-R " or ""
+        if mode:
+            self.run('chmod %s %s %s' % (recursive, mode, shell_safe(location)))
+        if owner:
+            self.run('chown %s %s %s' % (recursive, owner, shell_safe(location)))
+        if group:
+            self.run('chgrp %s %s %s' % (recursive, group, shell_safe(location)))
 
     @server_host_manager
     def prompt(self, text, key=None, default='', validate=None):
@@ -1390,7 +1394,7 @@ class BaseServer(object):
         if show:
             self.print_command(command)
         with hide("running"):
-            with cd(user_dir):
+            with self.cd(user_dir):
                 return self.sudo(command, user=user)
 
     @server_host_manager
@@ -1408,10 +1412,12 @@ class BaseServer(object):
         with hide('running', 'stdout', 'stderr', ):
             hostname = self.get_hostname()
             local_user_home = self.local_user_home()
-            remote_user_authorized_keys = '{0}/.ssh/authorized_keys'.format(self._get_home_dir(user=user)[0])
             user_ssh_dir = '{0}/.ssh'.format(self._get_home_dir(user=user)[0])
 
+            remote_user_home = self._get_home_dir(user=user)[0]
+            remote_user_authorized_keys = '{0}/.ssh/authorized_keys'.format(remote_user_home)
             remote_user_authorized_keys_dir = os.path.dirname(remote_user_authorized_keys)
+
             with settings(warn_only=True):
                 if not self.exists(remote_user_authorized_keys_dir):
                     self.sudo('mkdir -p {0}'.format(remote_user_authorized_keys_dir))
@@ -1424,18 +1430,18 @@ class BaseServer(object):
                     self.sudo('chmod 600 {0}'.format(remote_user_authorized_keys))
 
             with settings(warn_only=True):
-                local('yes | ssh-keygen -f "{0}/.ssh/known_hosts" -R {1}'.format(local_user_home,
-                                                                                 hostname))  # remove host if exist
+                self.local('yes | ssh-keygen -f "{0}/.ssh/known_hosts" -R {1}'.
+                           format(local_user_home, hostname))  # remove host if exist
 
             local_user_ssh_key = "{0}/.ssh/id_rsa.pub".format(local_user_home)
             remote_user_ssh_tmp_key = local_user_ssh_tmp_key = "/tmp/{0}_id_rsa.pub".format(user)
 
-            local('cat {0} > {1}'.format(local_user_ssh_key, local_user_ssh_tmp_key))
+            self.local('cat {0} > {1}'.format(local_user_ssh_key, local_user_ssh_tmp_key))
 
             self.put(local_path=local_user_ssh_tmp_key, remote_path=remote_user_ssh_tmp_key)
             self.sudo('cat {0} >> {1}'.format(remote_user_ssh_tmp_key, remote_user_authorized_keys))
             self.sudo('rm -rf {0}'.format(remote_user_ssh_tmp_key))
-            self.sudo('chown -R {0}:{0} {1}'.format(user, user_ssh_dir))
+            self.sudo('chown -R {0}. {1}'.format(user, user_ssh_dir))
 
 
 class BSD(BaseServer):
@@ -1490,7 +1496,7 @@ class BSD(BaseServer):
         else:
             self.sudo('chsh -s /usr/local/bin/bash {0}'.format(user))
             self.sudo("'xterm*Background:    black' >> .Xdefaults && echo 'xterm*Foreground:    white' >> .Xdefaults")
-            self.sudo("alias ls='ls -G' >> .bashrc") 
+            self.sudo("alias ls='ls -G' >> .bashrc")
 
 
 class FreeBsd(BSD):
@@ -1512,13 +1518,6 @@ class Debian(BaseServer):
     @property
     def distro(self):
         return 'Debian'
-
-    @server_host_manager
-    def uninstall_package(self, package):
-        uninstall = '{0} --purge remove {1} -y'.format(self.get_package_manager(), package)
-        with settings(warn_only=True):
-            self.sudo(uninstall)
-            self.sudo('apt-get autoremove')
 
     def get_package_manager(self):
         return "apt-get "
