@@ -8,16 +8,7 @@ with open('README.md') as f:
 
 
 install_requires = [
-    'argparse==1.2.1',
-    'boto==2.36.0',
-    'boto3==1.7.24'
-    'cuisine==0.7.4',
-    'ecdsa==0.13',
-    'Fabric==1.10.1',
-    'paramiko==1.15.2',
-    'pycrypto==2.6.1',
-    'requests==2.5.1',
-    'wsgiref==0.1.2',
+    'Fabric3==1.14.post1',
 ]
 
 
