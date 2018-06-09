@@ -8,7 +8,7 @@ import datetime
 import inspect
 from os.path import join
 from os import environ
-from urllib import urlopen
+from urllib.request import urlopen
 
 from fabric.contrib.files import sed
 from fabric.contrib.files import exists
@@ -37,6 +37,7 @@ from .utils import _print
 from .utils import server_host_manager
 
 now = str(datetime.datetime.now()).replace(' ', '-')
+motd_file = os.path.join(os.getcwd(), "motd")
 
 # stolen from cuisine
 SHELL_ESCAPE = " '\";`|"
@@ -253,7 +254,6 @@ class BaseServer(object):
 
     @server_host_manager
     def install_package(self, package):
-        self.update()
         manager = self.get_package_manager()
         command = "{0} install {1} -y".format(manager, package)
         with settings(warn_only=True):
@@ -272,7 +272,7 @@ class BaseServer(object):
         Returns True if a given package is install on os
         """
         with settings(warn_only=True):
-            info = self.sudo('dpkg -s %s'.format(package_name))
+            info = self.sudo('dpkg -s {0}'.format(package_name))
             if info.split('\n')[1] == 'Status: install ok installed\r':
                 return True
             return False
@@ -343,7 +343,7 @@ class BaseServer(object):
         if user is None:
             user = self.run('whoami')
         output = self.sudo('grep {0} /etc/passwd | cut -d: -f6'.format(user))
-        return filter(None, output.split())
+        return [host for host in filter(None, output.split())]
 
     @server_host_manager
     def show_public_key(self, key_path=None, user=None):
@@ -472,7 +472,7 @@ class BaseServer(object):
     @server_host_manager
     def ip_spoofing_guard(self):
         # Guard against spoof attempts
-        self.sudo('echo \'nospoof on\' >> /etc/host.conf')
+        self.echo('nospoof:  on', to='/etc/nsswitch.conf', use_sudo=True, append=True)
 
     @server_host_manager
     def limit_sudo_users(self, user_group="admin"):
@@ -673,24 +673,23 @@ class BaseServer(object):
         self.sudo('chsh -s /usr/bin/rssh {0}'.format(user))
 
     @server_host_manager
-    def setup_motd(self, motd_file):
+    def setup_motd(self, motd_file=motd_file):
         """This is message that displays when you login to ssh."""
-        try:
-            self.uninstall_package("landscape-common")
-        except:
-            pass
+        with open(motd_file) as _file:
+            file_content = _file.read()
 
-        self.sudo("touch /etc/motd || exit")
-        self.sudo("cp /etc/motd /etc/motd.old", quiet=False)
-        self.sudo("cp /etc/issue.net /etc/issue.net.old")
-        self.put(local_path=motd_file, remote_path="/etc/", use_sudo=True)
-        self.put(local_path=motd_file, remote_path="/etc/", use_sudo=True)
+        if self.exists("/etc/motd"):
+            self.sudo("cp /etc/motd /etc/motd.old", quiet=True)
+            self.echo(" '{}' ".format(file_content), to='/etc/motd', use_sudo=True, append=False)
+
+        if self.exists("/etc/issue.net"):
+            self.sudo("cp /etc/issue.net /etc/issue.net.old", quiet=True)
+            self.echo(" '{}' ".format(file_content), to='/etc/issue.net', use_sudo=True, append=False)
 
     @server_host_manager
     def install_rkhunter_n_chkrootkit(self, email):
         self.install_postfix()
         self.install_package('rkhunter chkrootkit')
-        self.update()
         self.sudo('cp /etc/chkrootkit.conf /etc/chkrootkit.conf.backup')
         self.sudo('cp /etc/default/rkhunter /etc/default/rkhunter.backup')
         self.sudo("echo > /etc/default/rkhunter")
@@ -715,7 +714,6 @@ class BaseServer(object):
               --cronjob --report-warnings-only | /usr/bin/mail \
                 -s \"rkhunter output\" {0}\" >> rkhunterscript".format(email))
             self.sudo('chmod 750 rkhunterscript')
-            # self.sudo('crontab -e')
             self.sudo("echo \"10 3 * * * rkhunterscript -c --cronjob\" >> mycron")
             self.sudo('crontab mycron')
         self.rkhunter_scan()
@@ -730,7 +728,6 @@ class BaseServer(object):
     @server_host_manager
     def setup_logwatch(self, email):
         """Install and Configure Log watch."""
-        self.update()
         with settings(warn_only=True):
             self.install_package('logwatch')
             self.sudo('mkdir /var/cache/logwatch')
@@ -788,19 +785,41 @@ class BaseServer(object):
         self.sudo('chmod -R go-rwx /root')
 
     @server_host_manager
-    def harden_server(self, user=None, passwd=None, hostname=None, domain_name=None, host_ip=None, email=None):
+    def harden_server(self, user=None, passwd=None, hostname=None,
+                      domain_name=None, host_ip=None, email=None,
+                      motd_file=motd_file):
+
+        hostname = hostname
+        host_ip = host_ip or self.ip
+        passwd = passwd or self.password
+
+        if self.user == "root" and user in [None, "root"]:
+            raise RuntimeError('User can not be none or root')
+
         if not all([user, passwd, hostname, domain_name, email]):
             raise RuntimeError('You Have to passed in all needed variables')
 
-        self.change_named_servers()
-        self.set_host(hostname=hostname, domain_name=domain_name)
+        # First UP create firewall
+        self.install_firewall(host_ip=host_ip)
+
+        # Create our secure user and grant user sudo rights
         self.create_user(user, passwd=passwd)  # Create your main user with sudo access
         self.add_user_to_sudo(user)
         self.add_sshgroup(user)
         self.send_ssh(user)
-        self.install_firewall(host_ip=host_ip)  # first UP create firewall
+
+        #  The cloud is an hostile environment so lets disable root login and use our new user
+        with hide("running", 'stdout', ):
+            with settings(warn_only=True):
+                self.disable_root_login()
+
+        if self.user == "root":
+            self.user = user
+
         self.update()
         self.remove_old_kernels()
+        self.change_named_servers()
+        self.set_host(hostname=hostname, domain_name=domain_name)
         self.tune_network_stack()
         self.harden_host_files()
         self.ip_spoofing_guard()
@@ -809,26 +828,17 @@ class BaseServer(object):
         self.limit_sudo_users()
         self.locale_conf()
         self.set_system_time()
-        self.install_package('libpam-tmpdir')
-        self.install_package('libpam-cracklib')
-        self.install_package('debconf-utils')
+        self.install_package('libpam-tmpdir libpam-cracklib debconf-utils')
         self.install_postfix()
         self.install_apparmor()
         self.install_fail2ban()
-        self.setup_logwatch()
-        self.set_up_tiger()
+        self.setup_logwatch(email=email)
         self.clean_manager()
-        self.setup_motd()
+        self.setup_motd(motd_file=motd_file)
         self.install_rkhunter_n_chkrootkit(email)
         self.enable_process_accounting()
-
         self.harden_sshd(user=user)
         self.rebootall()
-        with hide("running", 'stdout', ):
-            with settings(warn_only=True):
-                self.disable_root_login()
-        self.clear_screen()
-        print('System is clean and ready to go')
 
     @server_host_manager
     def get_hostname(self):
@@ -1071,7 +1081,7 @@ class BaseServer(object):
 
     @server_host_manager
     def view_firewall_rules(self):
-        self.sudo('ufw status numbered')
+        return self.sudo('ufw status numbered')
 
     @server_host_manager
     def firewall_allow_form_to(self, host=None, to=None, proto='tcp', port='22'):
@@ -1091,46 +1101,49 @@ class BaseServer(object):
         if not rules or rules is None:
             error("rules must be set")
 
+        [self.sudo(rule) for rule in rules]
+
         # re-enable firewall
         if enable:
-            rules.append('ufw --force enable')
-
-        rules = " && ".join(rules)
-        self.sudo(rules)
+            self.sudo('yes Y | ufw enable')
 
         self.sudo('ufw status verbose')
 
     @server_host_manager
     def install_firewall(self, host_ip=None, port='22'):
         """Install and configure Uncomplicated Firewall."""
+
         if host_ip is None:
             raise RuntimeError('please Enter your Ip address')
 
-        allow_from = self.env.ssh_allowed
-        self.env.hosts_allowed.append(host_ip)
-        allow_from.extend(self.env.hosts_allowed)
-        self.update()
         self.install_package('ufw')
-
-        self.sudo('yes | ufw reset')
+        self.sudo('yes Y | ufw reset')
 
         default_rules = ['ufw default deny incoming',
                          'ufw default allow outgoing',
                          'ufw limit ssh']
 
+        allow_from = getattr(self.env, 'ssh_allowed', [])
+
+        if type(host_ip) == list:
+            allow_from.extend(host_ip)
+        else:
+            allow_from.append(host_ip)
+
         allow_from = list(set(allow_from))
-        for host in allow_from:
-            default_rules.append('ufw allow from {host} proto tcp to any port {port}'.format(host=host, port=port))
+
+        if allow_from:
+            for host in allow_from:
+                default_rules.append('ufw allow from {0} proto tcp to any port {1}'.format(host, port))
 
         if self.is_package_installed('bind9'):
             default_rules.append('ufw allow 53')
 
-        if self.env.rules:
+        if getattr(self.env, 'rules', None) is not None:
             default_rules.extend(list(set(self.env.rules)))
 
         self.configure_firewall(rules=default_rules, enable=False)
 
-        self.sudo('yes | ufw enable')
         self.view_firewall_rules()
 
     @server_host_manager
@@ -1512,9 +1525,6 @@ class FreeBsd(BSD):
 
 
 class Debian(BaseServer):
-    def __init__(self, *args, **kwargs):
-        super(Debian, self).__init__(*args, **kwargs)
-
     @property
     def distro(self):
         return 'Debian'
