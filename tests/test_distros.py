@@ -83,12 +83,6 @@ class BaseServerTestCase(unittest.TestCase):
     def test_get_package_manager(self):
         self.assertRaises(NotImplementedError, self.base_server.get_package_manager)
 
-    def test_run_in_background(self):
-        pass
-
-    def test_get_mac_address(self):
-        pass
-
     def test_get_installation_date(self):
         pass
 
@@ -146,15 +140,6 @@ class BaseServerTestCase(unittest.TestCase):
     def test_service_status(self):
         pass
 
-    def test_configure_supervisor(self):
-        pass
-
-    def test_reread_supervisor_conf(self):
-        pass
-
-    def test_supervisorctl(self):
-        pass
-
     def test_list_files_with_no_owner(self):
         pass
 
@@ -174,9 +159,6 @@ class BaseServerTestCase(unittest.TestCase):
         pass
 
     def test_cpu_number(self):
-        pass
-
-    def test_get_ip(self):
         pass
 
     def test_install_bower(self):
@@ -225,9 +207,6 @@ class BaseServerTestCase(unittest.TestCase):
         pass
 
     def test_tune_network_stack(self):
-        pass
-
-    def test_disable_usb_stick_to_detect(self):
         pass
 
     def test_check_opened_ports(self):
