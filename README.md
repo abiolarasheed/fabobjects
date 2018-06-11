@@ -49,8 +49,9 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
     >>> admin_user = environ.get("ADMIN-USER")
     >>> password = environ.get("SANDBOX-PASSWORD")
 
+    >>> # Create a dict so you can reuse it
     >>> config_dict = dict(hostname=hostname, domain_name=domain_name,
-                           ip=remote_server_ip, user="root", password=password)  # Create a dict you can resuse
+                           ip=remote_server_ip, user="root", password=password)
 
     >>> # Creating any server instance
     >>> centos_server = CentOs(**config_dict)
@@ -78,10 +79,26 @@ To install applications on your server using the example servers created above:
 
 ```python
     >>> from fabobjects.apps.django import DjangoApp
-    >>> from fabobjects.apps.git import GitRepo
     >>> from fabobjects.apps.nginx import NginxServer
     >>> from fabobjects.apps.postgres import PostgresServer
     >>> from fabobjects.apps.redis import RedisServer
+
+    >>> # Lets deploy a django app with postgres, redis, nginx all on a single server box.
+    >>> postgres = ubuntu_server.create_app(PostgresServer)
+    >>> # Instantiate a postgres server, this will not trigger a deployment
+    >>> nginx = ubuntu_server.create_app(NginxServer)
+    >>> # Instantiate an nginx server, this will not trigger a deployment
+    >>> redis = ubuntu_server.create_app(RedisServer)
+    >>> # Instantiate a redis app this will not trigger a deployment
+    >>> django_app = ubuntu_server.create_app(DjangoApp)
+    >>> # Instantiate a django app, this will not trigger a deployment
+
+    >>> # Now lets add the apps to the list of apps the server knows about
+    >>> [ubuntu_server.add_app(app) for app in [django_app, nginx, postgres, redis]]
+
+    >>> # Finally install and configure all
+    >>> ubuntu_server.deploy_all() # Install and configure all app to this server
+
 ```
 
 ## Limitations
