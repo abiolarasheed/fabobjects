@@ -238,11 +238,15 @@ class BaseServer(object):
 
     @property
     def os_name(self):
-        return self.run('lsb_release -a').split('\n')[1].split(':\t')[1]
+        return self.run('lsb_release -a').split('\n')[1].split(':\t')[1].rstrip()
 
     @property
     def os(self):
-        return self.run('lsb_release -a').split('\n')[0].split(':\t')[1]
+        try:
+            return self.run('lsb_release -a').split('\n')[0].split(':\t')[1].rstrip()
+        except IndexError:
+            return self.run('lsb_release -a').split('\n')[1].split(':\t')[1].rstrip()
+
 
     @server_host_manager
     def clear_screen(self):
@@ -498,17 +502,11 @@ class BaseServer(object):
 
     @server_host_manager
     def limit_sudo_users(self, user_group="admin"):
-        try:
-            self.sudo('groupadd {}'.format(user_group))
-        except SystemExit:
-            pass
-        finally:
-            self.sudo('usermod -a -G {0} {1}'.format(user_group, self.user))
+        if user_group not in self.list_groups():
+            self.sudo('groupadd {0}'.format(user_group))
 
-        try:
-            self.sudo('dpkg-statoverride --update --add root {0} 4750 /bin/su'.format(user_group))
-        except SystemExit:
-            pass
+        self.sudo('usermod -a -G {0} {1}'.format(user_group, self.user))
+        self.sudo('dpkg-statoverride --update --add root {0} 4750 /bin/su'.format(user_group))
 
     @server_host_manager
     def harden_host_files(self, hosts_allowed=list()):
@@ -611,7 +609,6 @@ class BaseServer(object):
         self.sudo('echo \'Compression delayed\' >>  /etc/ssh/sshd_config')
         self.sudo('echo \'ListenAddress 0.0.0.0\' >>  /etc/ssh/sshd_config')
         self.sudo('echo \'GSSAPIAuthentication no\' >>  /etc/ssh/sshd_config')
-        self.service_restart('ssh')
 
     @server_host_manager
     def tune_network_stack(self):
@@ -727,7 +724,7 @@ class BaseServer(object):
         self.append('/etc/default/rkhunter', 'APT_AUTOGEN="yes"', use_sudo=True)
 
         # ignore some Ubuntu specific files
-        self.sudo("mkdir ~/bin")
+        self.sudo("mkdir -p ~/bin")
 
         with self.cd('~/bin'):
             self.sudo("echo \"#!/bin/sh\" >> rkhunterscript")
@@ -818,25 +815,13 @@ class BaseServer(object):
         if not all([user, passwd, user_ip, motd_file, email]):
             raise RuntimeError('You have to pass in all needed variables')
 
+        self.disable_root_login()
+        self.harden_sshd(user=user)
+        self.enable_process_accounting()
+        self.setup_motd(motd_file=motd_file)
+
         # Lets update or system first
         self.update()
-
-        # Create firewall
-        self.install_firewall(user_ip=user_ip)
-
-        # Create our secure user and grant user sudo rights
-        self.create_user(user, passwd=passwd)  # Create your main user with sudo access
-        self.add_user_to_sudo(user)
-        self.add_sshgroup(user=user)
-        self.send_ssh(user)
-
-        #  The cloud is an hostile environment so lets disable root login and use our new user
-        if self.user == "root" and user != "root":
-            self.user = user
-
-        self.disable_root_login()
-
-        self.harden_sshd(user=user)
         self.remove_old_kernels()
         self.change_named_servers()
         self.set_host(hostname=self._hostname, domain_name=self._domain_name)
@@ -854,10 +839,8 @@ class BaseServer(object):
         self.install_fail2ban()
         self.setup_logwatch(email=email)
         self.install_rkhunter_n_chkrootkit(email)
-        self.enable_process_accounting()
-        self.setup_motd(motd_file=motd_file)
         self.clean_manager()
-        self.rebootall()
+        self.install_firewall(user_ip=user_ip)  # Create firewall
 
     @server_host_manager
     def get_hostname(self):
@@ -966,6 +949,9 @@ class BaseServer(object):
     @server_host_manager
     def create_admin_account(self, admin_username, admin_password):
         """Create the admin group and add it to the sudoers file."""
+        if not self.is_package_installed('sudo'):
+            self.install_package('sudo')
+
         with settings(warn_only=True):
             admin_group = 'admin'
             if admin_group not in self.list_groups():
@@ -977,9 +963,12 @@ class BaseServer(object):
             if admin_username not in self.list_users():
                 self.sudo('adduser {username} --disabled-password --gecos ""'.format(username=admin_username))
                 self.sudo('adduser {username} {group}'.format(username=admin_username, group=admin_group))
+                self.sudo('echo "{username} ALL=(ALL) ALL" >> /etc/sudoers'.format(username=admin_username))
                 self.change_password(admin_username, admin_password)
                 self.add_sshgroup(user=admin_username)
                 self.send_ssh(admin_username)
+                self.user = admin_username
+                self.password = admin_password
 
     @server_host_manager
     def add_user_to_sudo(self, user):
