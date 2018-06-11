@@ -67,7 +67,7 @@ class BaseServer(object):
         self._domain_name = kwargs.get('domain_name') or getattr(env, 'domain_name', None)
         self._hostname = kwargs.get('hostname', ) or getattr(env, 'hostname', None)
         self._email = kwargs.get('password', None)
-        self.host_ip = kwargs.get('host_ip', None)
+        self.user_ip = kwargs.get('user_ip', None)
         self.user = kwargs.get('user') or env.user
         self.ssh_port = kwargs.get('ssh_port') or '22'
         self.password = kwargs.get('password', environ.get('PASSWORD', None))
@@ -794,22 +794,22 @@ class BaseServer(object):
         self.sudo('chmod -R go-rwx /root')
 
     @server_host_manager
-    def harden_server(self, user=None, passwd=None, host_ip=None, email=None, motd_file=motd_file):
+    def harden_server(self, user=None, passwd=None, user_ip=None, email=None, motd_file=motd_file):
         email = email or self._email
-        host_ip = host_ip or self.host_ip
+        user_ip = user_ip or self.user_ip
         passwd = passwd or self.password
 
         if self.user == "root" and user in [None, "root"]:
             raise RuntimeError('User can not be none or root')
 
-        if not all([user, passwd, host_ip, motd_file, email]):
+        if not all([user, passwd, user_ip, motd_file, email]):
             raise RuntimeError('You have to pass in all needed variables')
 
         # Lets update or system first
         self.update()
 
         # Create firewall
-        self.install_firewall(host_ip=host_ip)
+        self.install_firewall(user_ip=user_ip)
 
         # Create our secure user and grant user sudo rights
         self.create_user(user, passwd=passwd)  # Create your main user with sudo access
@@ -1134,10 +1134,10 @@ class BaseServer(object):
         self.sudo('ufw status verbose')
 
     @server_host_manager
-    def install_firewall(self, host_ip=None, port='22'):
+    def install_firewall(self, user_ip=None, port='22'):
         """Install and configure Uncomplicated Firewall."""
 
-        if host_ip is None:
+        if user_ip is None:
             raise RuntimeError('please Enter your Ip address')
 
         self.install_package('ufw')
@@ -1149,10 +1149,10 @@ class BaseServer(object):
 
         allow_from = getattr(self.env, 'ssh_allowed', [])
 
-        if type(host_ip) == list:
-            allow_from.extend(host_ip)
+        if type(user_ip) == list:
+            allow_from.extend(user_ip)
         else:
-            allow_from.append(host_ip)
+            allow_from.append(user_ip)
 
         allow_from = list(set(allow_from))
 
