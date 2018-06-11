@@ -82,7 +82,7 @@ To install applications on your server using the example servers created above:
     >>> from fabobjects.apps.nginx import NginxServer
     >>> from fabobjects.apps.postgres import PostgresServer
     >>> from fabobjects.apps.redis import RedisServer
-``
+```
 
 ## Limitations
 
