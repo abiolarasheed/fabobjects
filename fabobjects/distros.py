@@ -47,7 +47,7 @@ SHELL_ESCAPE = " '\";`|"
 def shell_safe(path):
     """
     Makes sure that the given path/string is escaped and safe for shell
-    :param path:
+    :param string path:
     :return: string
     """
     return "".join([("\\" + _) if _ in SHELL_ESCAPE else _ for _ in path])
@@ -60,13 +60,26 @@ class BaseServer(object):
     This class performs useful high level operations over ssh.
     """
     def __init__(self, *args, **kwargs):
+        """
+        Initializes a server.
+
+        :param dict env: A fabric env object or dict
+        :param str ip: The IP address of this server
+        :param str domain_name: The fqdn if you have one else set to None
+        :param str hostname: The hostname of this server
+        :param str email: Sysadmin email this is where your logs will me mailed to
+        :param str user_ip: The IP address that will be used to connect to the server set this if you have fixed ip.
+        :param str user: The username you will use to connect to the server
+        :param int ssh_port: Your ssh port number
+        :param str password: The password you will used to work on the server when promted for one.
+        """
         self.cache = {}
-        self.env = env
         self.hostfile = '/etc/hosts'
+        self.env = kwargs.get('env') or env
         self.ip = kwargs.get('ip')
         self._domain_name = kwargs.get('domain_name') or getattr(env, 'domain_name', None)
         self._hostname = kwargs.get('hostname', ) or getattr(env, 'hostname', None)
-        self._email = kwargs.get('password', None)
+        self._email = kwargs.get('email', None)
         self.user_ip = kwargs.get('user_ip', None)
         self.user = kwargs.get('user') or env.user
         self.ssh_port = kwargs.get('ssh_port') or '22'
@@ -100,7 +113,7 @@ class BaseServer(object):
     def create_app(self, app_class):
         """
         Creates an application server from the
-        :param app_class: class
+        :param class app_class: An app class
         :return:
         """
         attributes = ["cache", "env", "hostfile", "ip", "user", "ssh_port", "password"]
@@ -1604,5 +1617,5 @@ class RedHat(BaseServer):
         self.sudo("{0} list installed|less".format(manager))
 
 
-class CentOs(RedHat):
+class CentOS(RedHat):
     pass

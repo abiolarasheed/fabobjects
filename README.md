@@ -38,7 +38,7 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
 
 ```python
     >>> from os import environ
-    >>> from fabobjects.distros import CentOs, Debian, FreeBsd, Ubuntu
+    >>> from fabobjects.distros import CentOS, Debian, FreeBsd, Ubuntu
 
     >>> root_user = "root"
     >>> # some providers give you the root when instance is created so we login with it on first login
@@ -57,7 +57,7 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
                            ip=remote_server_ip, user=root_user, password=password)
 
     >>> # Create server instance
-    >>> centos_server = CentOs(**config_dict)
+    >>> centos_server = CentOS(**config_dict)
     >>> debian_server = Debian(**config_dict)
     >>> freebsd_server = FreeBsd(**config_dict)
     >>> ubuntu_server = Ubuntu(**config_dict)
