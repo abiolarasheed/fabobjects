@@ -65,6 +65,10 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
     >>> ubuntu_server.uptime()  # Check how long server has been on
     '19:08:47 up 1 min,  1 user,  load average: 0.32, 0.59, 0.27'
 
+    >>> # Lets create our secure user and grant user sudo rights
+    >>> ubuntu_server.create_admin_account(admin_user, password)
+    >>> # remember to do this before calling harden_server method
+
     >>> # For basic server hardening just call the harden_server method and you ready to go!
 
     >>> centos_server.harden_server(user=admin_user)
@@ -75,12 +79,13 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
     >>> freebsd_server.harden_server(user=admin_user, user_ip=my_pc_ip, email=admin_email)
 
     >>> ubuntu_server.harden_server(user=admin_user, user_ip=my_pc_ip, email=admin_email)
+    >>> ubuntu_server.rebootall()  # Now restart server
 
     >>> freebsd_server.install_package("nginx")  #  Install single application
 
-    >>> centos_server.install_package("redis postgres rabbitmq")  #  Install multiple application
+    >>> debian_server.install_package("redis-server postgresql-9.4 rabbitmq-server")  #  Install multiple application
 
-    >>> ubuntu_server.uninstall_package("mysql")  #  uninstall single application
+    >>> centos_server.uninstall_package("mysql-server")  #  uninstall single application
 
 ```
 
@@ -118,6 +123,7 @@ To install applications on your server using the example servers created above:
 
 This app has been tested on the following platforms:
 
+* Debian 8.10, 9,04
 * Ubuntu 14.04, 16.04, 18.04
 
 ## Documentation
