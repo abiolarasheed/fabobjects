@@ -64,8 +64,8 @@ class BaseServer(object):
         self.env = env
         self.hostfile = '/etc/hosts'
         self.ip = kwargs.get('ip')
-        self.__domain_name = kwargs.get('domain_name') or getattr(env, 'domain_name', None)
-        self.__hostname = kwargs.get('hostname', ) or getattr(env, 'hostname', None)
+        self._domain_name = kwargs.get('domain_name') or getattr(env, 'domain_name', None)
+        self._hostname = kwargs.get('hostname', ) or getattr(env, 'hostname', None)
         self.user = kwargs.get('user') or env.user
         self.ssh_port = kwargs.get('ssh_port') or '22'
         self.password = kwargs.get('password', environ.get('PASSWORD', None))
@@ -110,8 +110,8 @@ class BaseServer(object):
             def __init__(self, *args, **kwargs):
                 super(ServerApp, self).__init__(*args, **kwargs)
 
-        app = ServerApp(domain_name=self.__domain_name,
-                        hostname=self.__hostname)
+        app = ServerApp(domain_name=self._domain_name,
+                        hostname=self._hostname or self.hostname)
 
         # Set all attributes of the host to the application so that we can control the host from the app and expose some
         #  of the server methods to the host.
@@ -216,9 +216,9 @@ class BaseServer(object):
             return '127.0.0.1'
 
         if self.ssh_port != '22':
-            host = '%s@%s:%s' % (self.user, self.ip, self.ssh_port)
+            host = '{0}@{1}:{2}'.format(self.user, self.ip, self.ssh_port)
         else:
-            host = '%s@%s' % (self.user, self.ip)
+            host = '{0}@{1}'.format(self.user, self.ip)
         return host
 
     @property
@@ -395,17 +395,17 @@ class BaseServer(object):
 
     @server_host_manager
     def fqdn(self, domain_name=None, hostname=None, fqdn=True):
-        if not any([domain_name, self.__domain_name]):
+        if not any([domain_name, self._domain_name]):
             raise RuntimeError('Your Server has no domain name and none entered')
 
-        if not any([hostname, self.__hostname]):
+        if not any([hostname, self._hostname]):
             raise RuntimeError('Your Server has no hostname and none entered')
 
-        if self.__domain_name is None:
-            domain_name = domain_name or self.__domain_name
+        if self._domain_name is None:
+            domain_name = domain_name or self._domain_name
 
-        if self.__hostname is None:
-            hostname = hostname or self.__hostname
+        if self._hostname is None:
+            hostname = hostname or self._hostname
 
         fqdn_ = '{0}.{1}'.format(hostname, domain_name)
 
@@ -416,54 +416,61 @@ class BaseServer(object):
 
     @server_host_manager
     def __set_kernel_domain_name(self, domain_name=None, hostname=None):
-        _, _, full_domain_name = self.fqdn(hostname=hostname, domain_name=domain_name, fqdn=False)
-        if all([full_domain_name, domain_name, hostname]):
-            self.echo(domain_name, to='/proc/sys/kernel/domainname', use_sudo=True, append=False)
-            self.echo(hostname, to='/proc/sys/kernel/hostname', use_sudo=True, append=False)
+        if domain_name is not None:
+            full_domain_name = self.fqdn(hostname=hostname, domain_name=domain_name)
 
-            afile = '/etc/sysctl.conf'
-            self.echo('kernel.hostname={0}'.format(hostname), to=afile, use_sudo=True, append=True)
-            self.echo('kernel.domainname={0}'.format(domain_name), to=afile, use_sudo=True, append=True)
-        else:
-            raise RuntimeError('Your Server has no domain name or hostname and none entered')
+            if all([full_domain_name, domain_name, hostname]):
+                self.echo(domain_name, to='/proc/sys/kernel/domainname', use_sudo=True, append=False)
+                self.echo(hostname, to='/proc/sys/kernel/hostname', use_sudo=True, append=False)
+
+                afile = '/etc/sysctl.conf'
+                self.echo('kernel.hostname={0}'.format(hostname), to=afile, use_sudo=True, append=True)
+                self.echo('kernel.domainname={0}'.format(domain_name), to=afile, use_sudo=True, append=True)
+                return full_domain_name
+            raise RuntimeError('Your server has no domain name or hostname and none entered')
 
     @server_host_manager
     def __set_hostname(self, hostname=None, domain_name=None):
         """Set server's hostname."""
-        opts = dict(
-            public_ip=self.ip or self.env.server_ip or error("env.public_ip must be set"),
-            hostname=hostname or self.env.hostname or error("env.hostname must be set"),
-            domainname=domain_name or self.env.domain_name or error("env.domain_name must be set"),
-        )
+        opts = dict(public_ip=self.ip, hostname=hostname)
+
+        if domain_name is not None:
+            opts.update({'domainname': domain_name})
 
         afile = self.hostfile
         self.echo('127.0.0.1   localhost', to=afile, append=False)
-        self.echo('127.0.1.1   %(hostname)s.%(domainname)s %(hostname)s' % opts, to=afile)
-        self.echo('%(public_ip)s  %(hostname)s.%(domainname)s %(hostname)s' % opts, to=afile)
+
+        if domain_name is not None:
+            self.echo('127.0.1.1   %(hostname)s.%(domainname)s %(hostname)s' % opts, to=afile)
+            self.echo('%(public_ip)s  %(hostname)s.%(domainname)s %(hostname)s' % opts, to=afile)
+
         self.echo('# The following lines are desirable for IPv6 capable hosts', to=afile)
         self.echo('::1     ip6-localhost ip6-loopback', to=afile)
         self.echo('fe00::0 ip6-localnet', to=afile)
         self.echo('ff00::0 ip6-mcastprefix', to=afile)
         self.echo('ff02::1 ip6-allnodes', to=afile)
         self.echo('ff02::2 ip6-allrouters', to=afile)
+
         afile = '/etc/hostname'
         self.echo("%(hostname)s" % opts, to=afile)
 
     @server_host_manager
     def set_host(self, hostname=None, domain_name=None):
         if all([hostname, domain_name]):
-            hostname, domain_name, fqdn = self.fqdn(hostname=hostname, domain_name=domain_name, fqdn=False)
+            fqdn = self.fqdn(hostname=hostname, domain_name=domain_name)
+
             if all([hostname, domain_name]):
                 self.__set_kernel_domain_name(hostname=hostname, domain_name=domain_name)
                 self.__set_hostname(hostname=hostname, domain_name=domain_name)
                 self.sudo('hostname {0}'.format(hostname))
                 return True
-        raise RuntimeError('Your Server has no domain name or hostname and none entered')
+        raise RuntimeError('Your Server has no domain name or hostname.')
 
     @server_host_manager
     def change_named_servers(self, ns1='208.67.222.222', ns2='208.67.220.220'):
         text_before = 'dns-nameservers 8.8.8.8 8.8.4.4'
         text_after = 'dns-nameservers {0} {1}'.format(ns1, ns2)
+
         try:
             self.sed('/etc/network/interfaces', text_before, text_after, use_sudo=True)
         except:
@@ -723,7 +730,7 @@ class BaseServer(object):
         self.sudo('chkrootkit')
         self.sudo('rkhunter --update')
         self.sudo('rkhunter --propupd')
-        self.sudo('yes | sudo rkhunter --check --ns')
+        self.sudo('yes Y | sudo rkhunter --check --ns')
 
     @server_host_manager
     def setup_logwatch(self, email):
@@ -785,41 +792,38 @@ class BaseServer(object):
         self.sudo('chmod -R go-rwx /root')
 
     @server_host_manager
-    def harden_server(self, user=None, passwd=None, hostname=None,
-                      domain_name=None, host_ip=None, email=None,
-                      motd_file=motd_file):
-
-        hostname = hostname
-        host_ip = host_ip or self.ip
+    def harden_server(self, user=None, passwd=None, host_ip=None, email=None, motd_file=motd_file):
+        host_ip = host_ip
         passwd = passwd or self.password
 
         if self.user == "root" and user in [None, "root"]:
             raise RuntimeError('User can not be none or root')
 
-        if not all([user, passwd, hostname, domain_name, email]):
-            raise RuntimeError('You Have to passed in all needed variables')
+        if not all([user, passwd, host_ip, motd_file, email]):
+            raise RuntimeError('You have to pass in all needed variables')
 
-        # First UP create firewall
+        # Lets update or system first
+        self.update()
+
+        # Create firewall
         self.install_firewall(host_ip=host_ip)
 
         # Create our secure user and grant user sudo rights
         self.create_user(user, passwd=passwd)  # Create your main user with sudo access
         self.add_user_to_sudo(user)
-        self.add_sshgroup(user)
+        self.add_sshgroup(user=user)
         self.send_ssh(user)
 
         #  The cloud is an hostile environment so lets disable root login and use our new user
-        with hide("running", 'stdout', ):
-            with settings(warn_only=True):
-                self.disable_root_login()
-
-        if self.user == "root":
+        if self.user == "root" and user != "root":
             self.user = user
 
-        self.update()
+        self.disable_root_login()
+
+        self.harden_sshd(user=user)
         self.remove_old_kernels()
         self.change_named_servers()
-        self.set_host(hostname=hostname, domain_name=domain_name)
+        self.set_host(hostname=self._hostname, domain_name=self._domain_name)
         self.tune_network_stack()
         self.harden_host_files()
         self.ip_spoofing_guard()
@@ -833,11 +837,10 @@ class BaseServer(object):
         self.install_apparmor()
         self.install_fail2ban()
         self.setup_logwatch(email=email)
-        self.clean_manager()
-        self.setup_motd(motd_file=motd_file)
         self.install_rkhunter_n_chkrootkit(email)
         self.enable_process_accounting()
-        self.harden_sshd(user=user)
+        self.setup_motd(motd_file=motd_file)
+        self.clean_manager()
         self.rebootall()
 
     @server_host_manager
@@ -885,6 +888,13 @@ class BaseServer(object):
     @server_host_manager
     def create_user(self, user, home=None, passwd=None, no_home=False):
         """Create new user account."""
+        if user is None:
+            error("User was not provided")
+
+        if user in self.list_users():
+            self._print("User already exist")
+            return True
+
         if home is None:
             home = '/home/{0}'.format(user)
 
@@ -898,7 +908,7 @@ class BaseServer(object):
             command = command.replace('useradd', 'useradd -p {0}'.format(passwd))
 
         with hide('running', 'stdout', 'stderr'):
-            self.sudo(command)
+            self.sudo(command, show=False)
 
     @server_host_manager
     def change_password(self, user, pswd):
@@ -929,32 +939,39 @@ class BaseServer(object):
     def add_sshgroup(self, user=None):
         if user is None:
             user = self.user
+
         with settings(warn_only=True):
-            try:
+            if "sshuser" not in self.list_groups():
                 self.sudo('addgroup sshuser')
-            except:
-                pass
-        self.sudo('adduser {user} sshuser'.format(user=user))
+
+            if "sshuser" not in self.list_user_groups(user=user):
+                self.sudo('adduser {user} sshuser'.format(user=user))
 
     @server_host_manager
     def create_admin_account(self, admin_username, admin_password):
         """Create the admin group and add it to the sudoers file."""
         with settings(warn_only=True):
             admin_group = 'admin'
-            self.sudo('addgroup {group}'.format(group=admin_group))
-            self.sudo('echo "{group} ALL=(ALL) ALL" >> /etc/sudoers'.format(group=admin_group))
+            if admin_group not in self.list_groups():
+                self.sudo('addgroup {group}'.format(group=admin_group))
+                self.sudo('echo "{group} ALL=(ALL) ALL" >> /etc/sudoers'.format(group=admin_group))
 
         with settings(warn_only=True):
             # Create the new admin user (default group=username); add to admin group
-            self.sudo('adduser {username} --disabled-password --gecos ""'.format(username=admin_username))
-            self.sudo('adduser {username} {group}'.format(username=admin_username, group=admin_group))
-            self.change_password(admin_username, admin_password)
-            self.add_sshgroup(admin_username)
-            self.send_ssh(admin_username)
+            if admin_username not in self.list_users():
+                self.sudo('adduser {username} --disabled-password --gecos ""'.format(username=admin_username))
+                self.sudo('adduser {username} {group}'.format(username=admin_username, group=admin_group))
+                self.change_password(admin_username, admin_password)
+                self.add_sshgroup(user=admin_username)
+                self.send_ssh(admin_username)
 
     @server_host_manager
     def add_user_to_sudo(self, user):
         """Add a user to the sudoer file."""
+        if 'sudo' in self.list_user_groups(user=user):
+            self._print("User already in sudo group")
+            return True
+
         with settings(warn_only=True):
             self.sudo('adduser %s sudo' % user)
 
@@ -999,6 +1016,11 @@ class BaseServer(object):
         return sorted(result.split())
 
     @server_host_manager
+    def list_user_groups(self, user):
+        groups = self.run_as_user('groups', user=user).split()
+        return groups
+
+    @server_host_manager
     def get_general_info(self):
         """Retrieve hostname and some general server info"""
         self.run("hostname")
@@ -1013,8 +1035,7 @@ class BaseServer(object):
 
     @server_host_manager
     def shutdown(self):
-        with settings(warn_only=True):
-            return self.sudo('poweroff')
+        return self.sudo("shutdown -r now")
 
     @server_host_manager
     def rebootall(self):
@@ -1241,7 +1262,7 @@ class BaseServer(object):
     @server_host_manager
     def execute(self, task, *args, **kwargs):
         with hide("running"):
-            execute(task, *args, **kwargs)
+            return execute(task, *args, **kwargs)
 
     @server_host_manager
     def append(self, filename, text, show=True,
@@ -1262,7 +1283,7 @@ class BaseServer(object):
         """ Runs a shell command on the remote server. """
         if show:
             self.print_command(command)
-        with hide("running"):
+        with hide("everything"):
             if self.ip in ['localhost', '127.0.0.1']:
                 command = 'sudo ' + command
                 return local(command, **kwargs)
@@ -1443,7 +1464,7 @@ class BaseServer(object):
                     self.sudo('chmod 600 {0}'.format(remote_user_authorized_keys))
 
             with settings(warn_only=True):
-                self.local('yes | ssh-keygen -f "{0}/.ssh/known_hosts" -R {1}'.
+                self.local('yes Y | ssh-keygen -f "{0}/.ssh/known_hosts" -R {1}'.
                            format(local_user_home, hostname))  # remove host if exist
 
             local_user_ssh_key = "{0}/.ssh/id_rsa.pub".format(local_user_home)
@@ -1543,6 +1564,12 @@ class Debian(BaseServer):
         return result
 
 
+class Ubuntu(Debian):
+    @server_host_manager
+    def shutdown(self):
+        return self.sudo('poweroff')
+
+
 class RedHat(BaseServer):
     def distro(self):
         return 'RedHat'
@@ -1572,3 +1599,7 @@ class RedHat(BaseServer):
     def list_installed_package(self):
         manager = self.get_package_manager()
         self.sudo("{0} list installed|less".format(manager))
+
+
+class CentOs(RedHat):
+    pass
