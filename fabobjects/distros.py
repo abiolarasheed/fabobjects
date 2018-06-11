@@ -66,6 +66,8 @@ class BaseServer(object):
         self.ip = kwargs.get('ip')
         self._domain_name = kwargs.get('domain_name') or getattr(env, 'domain_name', None)
         self._hostname = kwargs.get('hostname', ) or getattr(env, 'hostname', None)
+        self._email = kwargs.get('password', None)
+        self.host_ip = kwargs.get('host_ip', None)
         self.user = kwargs.get('user') or env.user
         self.ssh_port = kwargs.get('ssh_port') or '22'
         self.password = kwargs.get('password', environ.get('PASSWORD', None))
@@ -793,7 +795,8 @@ class BaseServer(object):
 
     @server_host_manager
     def harden_server(self, user=None, passwd=None, host_ip=None, email=None, motd_file=motd_file):
-        host_ip = host_ip
+        email = email or self._email
+        host_ip = host_ip or self.host_ip
         passwd = passwd or self.password
 
         if self.user == "root" and user in [None, "root"]:
