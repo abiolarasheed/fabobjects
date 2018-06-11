@@ -41,19 +41,21 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
     >>> from os import environ
     >>> from fabobjects.distros import CentOs, Debian, FreeBsd, Ubuntu
 
-    >>> my_pc_ip = "192.168.1.9"
-    >>> hostname = "sandbox"
+    >>> root_user = "root" # some providers give you the root when instance is created so we login with it on first login
+    >>> my_pc_ip = "51.171.200.9" # your fixed ip address if you have one else just use None
+    >>> hostname = "sandbox"      # Any name you want to give to your box
+    >>> # The domain name you have already paid for and you need to point your dns to the address bellow
     >>> domain_name = "example.com"
-    >>> remote_server_ip = '192.168.1.12'
+    >>> remote_server_ip = '104.216.741.72' # The ip provided by your cloud provider for this server instance
     >>> admin_email = environ.get("ADMIN-EMAIL")
-    >>> admin_user = environ.get("ADMIN-USER")
+    >>> admin_user = environ.get("ADMIN-USER")  # The user we will create and use to login after first login
     >>> password = environ.get("SANDBOX-PASSWORD")
 
     >>> # Create a dict so you can reuse it
     >>> config_dict = dict(hostname=hostname, domain_name=domain_name,
-                           ip=remote_server_ip, user="root", password=password)
+                           ip=remote_server_ip, user=root_user, password=password)
 
-    >>> # Creating any server instance
+    >>> # Create server instance
     >>> centos_server = CentOs(**config_dict)
     >>> debian_server = Debian(**config_dict)
     >>> freebsd_server = FreeBsd(**config_dict)
@@ -62,17 +64,17 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
     >>> ubuntu_server.uptime()  # Check how long server has been on
     '19:08:47 up 1 min,  1 user,  load average: 0.32, 0.59, 0.27'
 
-    >>> # For basic server hardening just call the harden_server method and you ready to
-    >>> # use user server in the wild
-    >>> centos_server.harden_server(user=admin_user, host_ip=my_pc_ip, email=admin_email)
-    >>> debian_server.harden_server(user=admin_user, host_ip=my_pc_ip, email=admin_email)
-    >>> freebsd_server.harden_server(user=admin_user, host_ip=my_pc_ip, email=admin_email)
-    >>> ubuntu_server.harden_server(user=admin_user, host_ip=my_pc_ip, email=admin_email)
+    >>> # For basic server hardening just call the harden_server method and you ready to go!
+    >>> centos_server.harden_server(user=admin_user) # Do this if you already passed in the `email` and `my_pc_ip` when initializing
+    >>> debian_server.harden_server(user=admin_user, user_ip=my_pc_ip, email=admin_email)
+    >>> freebsd_server.harden_server(user=admin_user, user_ip=my_pc_ip, email=admin_email)
+    >>> ubuntu_server.harden_server(user=admin_user, user_ip=my_pc_ip, email=admin_email)
 
 
-    >>> ubuntu_server.install_package("nginx")  #  Install single application
-    >>> ubuntu_server.install_package("redis postgres rabbitmq")  #  Install multiple application
+    >>> freebsd_server.install_package("nginx")  #  Install single application
+    >>> centos_server.install_package("redis postgres rabbitmq")  #  Install multiple application
     >>> ubuntu_server.uninstall_package("mysql")  #  uninstall single application
+
 ```
 
 To install applications on your server using the example servers created above:
@@ -94,10 +96,10 @@ To install applications on your server using the example servers created above:
     >>> # Instantiate a django app, this will not trigger a deployment
 
     >>> # Now lets add the apps to the list of apps the server knows about
-    >>> [ubuntu_server.add_app(app) for app in [django_app, nginx, postgres, redis]]
+    >>> [ubuntu_server.add_app(app) for app in [postgres, redis, nginx, django_app]]
 
     >>> # Finally install and configure all
-    >>> ubuntu_server.deploy_all() # Install and configure all app to this server
+    >>> ubuntu_server.deploy_all() # Install and configure all app to this server, note this will be done sequentially
 
 ```
 
