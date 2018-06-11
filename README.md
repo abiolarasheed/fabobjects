@@ -9,7 +9,7 @@ A collection of simple python classes for executing remote task using Fabric.
 3. [Installation - The basics of getting started with the motd module](#installation)
 4. [Usage - Configuration options and additional functionality](#usage)
 5. [Limitations - OS compatibility, etc.](#limitations)
-6  [Documentation](#documentation)
+6.  [Documentation](#documentation)
 7. [Contributors - Everyone is welcome to contribute](#contributors)
 
 
