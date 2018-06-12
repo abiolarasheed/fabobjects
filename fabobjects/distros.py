@@ -110,23 +110,25 @@ class BaseServer(object):
         return cd(*args, **kwargs)
 
     @server_host_manager
-    def create_app(self, app_class):
+    def create_app(self, AppClass):
         """
         Creates an application server from the
         :param class app_class: An app class
         :return:
         """
         attributes = ["cache", "env", "hostfile", "ip", "user", "ssh_port", "password"]
+        ServerClass = self.__class__
 
-        class ServerApp(self.__class__, app_class):
+        class Application(ServerClass, AppClass):
             """
             This is just a server class that get a base os and added new methods from the application class.
             """
             def __init__(self, *args, **kwargs):
-                super(ServerApp, self).__init__(*args, **kwargs)
+                ServerClass.__init__(self, *args, **kwargs)
+                AppClass.__init__(self, *args, **kwargs)
 
-        app = ServerApp(domain_name=self._domain_name,
-                        hostname=self._hostname or self.hostname)
+        app = Application(domain_name=self._domain_name,
+                          hostname=self._hostname or self.hostname)
 
         # Set all attributes of the host to the application so that we can control the host from the app and expose some
         #  of the server methods to the host.
@@ -1111,15 +1113,15 @@ class BaseServer(object):
 
     @server_host_manager
     def firewall_allow_form_to(self, host=None, to=None, proto='tcp', port='22'):
-        if all([host, to]):
-            self.sudo('ufw allow from {host} proto {proto} to any {port}'.format(host=host, port=to, proto=proto))
+        if all([host, proto, port]):
+            self.sudo('ufw allow from {0} proto {1} to any port {2}'.format(host, proto, port))
         else:
             print('Invalid host or port entered')
             # setup firewall
 
     @server_host_manager
     def delete_firewall_number(self, num):
-        self.sudo('ufw delete %s') % str(num)
+        self.sudo('yes Y | ufw delete {0}'.format(str(num)))
 
     @server_host_manager
     def configure_firewall(self, rules=None, enable=True):
