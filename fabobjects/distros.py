@@ -110,12 +110,15 @@ class BaseServer(object):
         return cd(*args, **kwargs)
 
     @server_host_manager
-    def create_app(self, AppClass):
+    def create_app(self, AppClass, data=None):
         """
         Creates an application server from the
         :param class app_class: An app class
         :return:
         """
+        if data is None:
+            data = {}
+
         attributes = ["cache", "env", "hostfile", "ip", "user", "ssh_port", "password"]
         ServerClass = self.__class__
 
@@ -127,8 +130,9 @@ class BaseServer(object):
                 ServerClass.__init__(self, *args, **kwargs)
                 AppClass.__init__(self, *args, **kwargs)
 
+        hostname = self._hostname or self.hostname
         app = Application(domain_name=self._domain_name,
-                          hostname=self._hostname or self.hostname)
+                          hostname=hostname, **data)
 
         # Set all attributes of the host to the application so that we can control the host from the app and expose some
         #  of the server methods to the host.
@@ -383,13 +387,13 @@ class BaseServer(object):
         return self.run_as_user(command, user=user)
 
     @server_host_manager
-    def generate_self_signed_ssl(self, hostname=None, cert_dir='/tmp/',
-                                 country_iso=None, state=None, city=None,
-                                 company_name=None):
+    def generate_self_signed_ssl(self, domain="", cert_dir='/tmp/',
+                                 country_iso="", state="", city="",
+                                 company_name=""):
         """
         Generate self-signed SSL certificates.
         """
-        if not all([hostname, country_iso, state, city, company_name]):
+        if not all([domain, country_iso, state, city, company_name]):
             raise KeyError
 
         full_cert_dir = os.path.join(cert_dir, "certs")
@@ -402,7 +406,8 @@ class BaseServer(object):
                 self.sudo("openssl req -newkey rsa:2048 -nodes -keyout "
                           "{0}.key -x509 -days 365 -out {0}.crt "
                           "-subj '/C={1}/ST={2}/L={3}/O={4}/"
-                          "CN={0}'".format(hostname, country_iso, state, city, company_name))
+                          "CN={0}'".format(domain, country_iso, state, city, company_name))
+                self.sudo("chmod 640 {0}/{1}.key {0}/{1}.crt".format(full_cert_dir, domain))
             return full_cert_dir
 
     @server_host_manager
