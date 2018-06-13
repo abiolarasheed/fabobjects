@@ -188,3 +188,7 @@ class RedisServer(RedisApp):
 
         self.service_restart("redis")
         self.service_start("stunnel4")
+
+
+class RedisSslClient(RedisApp):
+    pass
