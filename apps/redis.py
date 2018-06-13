@@ -8,7 +8,24 @@ from fabobjects.distros import shell_safe
 from fabobjects.utils import server_host_manager
 
 
-class RedisServer(BaseApp):
+class RedisApp(BaseApp):
+    def redis_cli(self, command):
+        """
+        Run redis command
+        :param str command: The command you want to pass to redis
+        :return:
+        """
+        if self.redis_password is not None:
+            command = "redis-cli -a {0} {1}".\
+                format(self.redis_password, command)
+
+        else:
+            command = "redis-cli {0}".format(command)
+
+        return self.run(command)
+
+
+class RedisServer(RedisApp):
     def __init__(self, *args, **kwargs):
         super(RedisServer, self).__init__(*args, **kwargs)
         self.service_name = 'redis-server'
@@ -171,18 +188,3 @@ class RedisServer(BaseApp):
 
         self.service_restart("redis")
         self.service_start("stunnel4")
-
-    def redis_cli(self, command):
-        """
-        Run redis command
-        :param str command: The command you want to pass to redis
-        :return:
-        """
-        if self.redis_password is not None:
-            command = "redis-cli -a {0} {1}".\
-                format(self.redis_password, command)
-
-        else:
-            command = "redis-cli {0}".format(command)
-
-        return self.run(command)
