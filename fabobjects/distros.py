@@ -563,9 +563,9 @@ class BaseServer(object):
         self.echo("1024 65535", to=afile)
 
     @server_host_manager
-    def harden_sshd(self, user=None):
+    def harden_sshd(self):
         """Security harden ssh server."""
-        user = user or self.user
+        user = self.user
         self.add_sshgroup(user=user)
         users = self.list_users()
 
@@ -811,19 +811,19 @@ class BaseServer(object):
         self.sudo('chmod -R go-rwx /root')
 
     @server_host_manager
-    def harden_server(self, user=None, passwd=None, user_ip=None, email=None, motd_file=motd_file):
+    def harden_server(self, passwd=None, user_ip=None, email=None, motd_file=motd_file):
         email = email or self._email
         user_ip = user_ip or self.user_ip
         passwd = passwd or self.password
 
-        if self.user == "root" and user in [None, "root"]:
+        if self.user == "root":
             raise RuntimeError('User can not be none or root')
 
-        if not all([user, passwd, user_ip, motd_file, email]):
+        if not all([passwd, user_ip, motd_file, email]):
             raise RuntimeError('You have to pass in all needed variables')
 
         self.disable_root_login()
-        self.harden_sshd(user=user)
+        self.harden_sshd()
         self.enable_process_accounting()
         self.setup_motd(motd_file=motd_file)
 
@@ -1051,7 +1051,7 @@ class BaseServer(object):
 
     @server_host_manager
     def rebootall(self):
-        reboot()
+        return reboot()
 
     @server_host_manager
     def update(self):
@@ -1059,8 +1059,6 @@ class BaseServer(object):
         self.sudo('{0} update'.format(manager))
         self.sudo('{0} upgrade -y'.format(manager))
         self.sudo('{0} autoremove -y'.format(manager))
-        self.sudo('{0} dist-upgrade -y'.format(manager))
-        self.sudo('{0} update'.format(manager))
 
     @server_host_manager
     def make_or_del(self, path, make=True, use_sudo=False, verbose=False, is_file=False):
@@ -1117,7 +1115,7 @@ class BaseServer(object):
         return self.sudo('ufw status numbered')
 
     @server_host_manager
-    def firewall_allow_form_to(self, host=None, to=None, proto='tcp', port='22'):
+    def firewall_allow_form_to(self, host=None, proto='tcp', port='22'):
         if all([host, proto, port]):
             self.sudo('ufw allow from {0} proto {1} to any port {2}'.format(host, proto, port))
         else:
