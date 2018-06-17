@@ -10,7 +10,7 @@ from fabobjects.utils import server_host_manager
 
 class RedisApp(BaseApp):
     """
-    A Redis class that defines a set of methods thats used by both redis servers and redis clients.
+    A Redis class that defines a set of methods that's used by both redis server and redis client class.
     """
     def redis_cli(self, command):
         """
@@ -101,7 +101,7 @@ class RedisServer(RedisApp):
             self.set_memory_limit(maxmemory=self.maxmemory)
 
         if self.public:
-            self.make_public(self)
+            self.make_public()
             self.firewall_conf(self.allowed_ip)
 
     @server_host_manager
@@ -251,20 +251,18 @@ class RedisSslClient(RedisApp):
         Install and set up a redis client on a host server.
         :return:
         """
-        self.install_package("redis-tools stunnel4")
         afile = shell_safe("/etc/default/stunnel4")
-        self.sed(afile, "ENABLED=0", "ENABLED=1", use_sudo=True)
-        self.put(local_path=self.server_cert, remote_path="/etc/stunnel/")
+        combined_cert = shell_safe(os.path.join("/etc/stunnel/", self.server_cert.split('/')[-1]))
 
-        combined_cert = shell_safe(os.path.join("/etc/stunnel/",
-                                                self.server_cert.split('/')[-1]))
+        self.install_package("redis-tools stunnel4")
+        self.sed(afile, "ENABLED=0", "ENABLED=1", use_sudo=True)
+        self.put(local_path=self.server_cert, remote_path=shell_safe("/etc/stunnel/"))
+
         self.sudo("chmod 640 {0}".format(combined_cert))
 
         #  Configure stunnel to use our self signed ssl cert
         conf_file = shell_safe("/etc/stunnel/redis-server.conf")
-
-        self.echo("cert = {0}".format(combined_cert),
-                  to=conf_file, append=False)
+        self.echo("cert = {0}".format(combined_cert), to=conf_file, append=False)
         self.echo("client = yes", to=conf_file)
         self.echo("pid = /var/run/stunnel.pid", to=conf_file)
         self.echo("[redis]", to=conf_file)
