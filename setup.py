@@ -9,12 +9,13 @@ with open('README.md') as f:
 
 install_requires = [
     'Fabric3==1.14.post1',
+    'Sphinx==1.7.5',
 ]
 
 
 setup(
     name='fabobjects',
-    version='0.1-dev',
+    version='0.0.1',
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     author='Abiola Rasheed',
@@ -34,9 +35,8 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Topic :: Software Development',
         'Topic :: Software Development :: Build Tools',
         'Topic :: Software Development :: Libraries',
