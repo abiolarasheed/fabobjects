@@ -1,3 +1,4 @@
 ipython
 Fabric3
 sphinx>=1.7.5
+sphinx_rtd_theme
