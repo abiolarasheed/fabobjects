@@ -114,7 +114,7 @@ as your self(current user). To do this fab-objects exposes 3 methods, ``sudo``,
 Using the server from previous samples::
 
     >>> ubuntu_server.user # just making sure we are the admin user
-    'ubuntu'
+    'ubuntu'                    
 
     >>> ubuntu_server.run("id")  # Run command as current user
     'uid=1000(ubuntu) gid=1000(ubuntu) groups=1000(ubuntu),...'
@@ -206,6 +206,9 @@ and here are a few::
 
     >>> # Creates file/folder or Delete file/folder on the remote server
     >>> ubuntu_server.make_or_del
+
+    >>> # Create symbolic link
+    >>> ubuntu_server.create_symbolic_link
 
 To see the usage and parameters of all this methods please see the API documentation.
 
