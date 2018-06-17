@@ -120,7 +120,7 @@ Using the server from previous samples::
     'uid=1000(ubuntu) gid=1000(ubuntu) groups=1000(ubuntu),...'
 
     >>> # Run command as another user(postgres user)
-    >>> ubuntu_server.run_as_user("whoami", user='postgres')
+    >>> ubuntu_server.run_as_user("id", user='postgres')
     'uid=116(postgres) gid=122(postgres) groups=122(postgres),...'
 
     >>>  # Run command with sudo
@@ -149,6 +149,7 @@ of setting up and managing your firewalls::
 
     >>> # View current firewall rules
     >>> print(ubuntu_server.view_firewall_rules())
+
          To          Action      From
          --          ------      ----
     [ 1] 22          LIMIT IN    58.588.588.58
@@ -161,6 +162,7 @@ of setting up and managing your firewalls::
 
     >>> # View status and rules
     >>> print(ubuntu_server.firewall_status())
+
     Status: active
     Logging: on (low)
     Default: deny (incoming), allow (outgoing), disabled (routed)
@@ -180,13 +182,12 @@ creation and transfer. Fab-object exposes a few method to cover most use case
 and here are a few::
 
 
-    >>> # Upload/Download files
-    >>> ubuntu_server.put("local_tar_file", '/etc/ngix/')
-    >>> ubuntu_server.get(local_zip_file, config_path)
+    >>> ubuntu_server.put  # Upload files
+    >>> ubuntu_server.get  # Download files
 
-    >>> # Zip/Unzip files
-    >>> ubuntu_server.zip(ssl_file, file_type="tar")
-    >>> ubuntu_server.unzip(zip_file, file_type="zip")
+    >>> # Compress/Uncompress files
+    >>> ubuntu_server.compress    # Compress files
+    >>> ubuntu_server.uncompress  # Uncompress files
 
     >>> # Comment/Uncomment/Append/Replace
     >>> ubuntu_server.comment
@@ -194,25 +195,19 @@ and here are a few::
     >>> ubuntu_server.append
     >>> ubuntu_server.sed
 
-    >>> ubuntu_server.exists(path)
-    >>> ubuntu_server.comment(filename, regex)
-    >>> ubuntu_server.uncomment(filename, regex)
+    >>> # Checks if a file exist on the remote server
+    >>> ubuntu_server.exists
+
+    >>> # Checks if a folder exist on the remote server
     >>> ubuntu_server.dir_exists(location)
+
+    >>> # Create folder if it does not exist on the remote server
     >>> ubuntu_server.dir_ensure(location, recursive=False)
 
-    >>> # Create/Delete files/folders
-    >>> # Create file
-    >>> ubuntu_server.make_or_del("/tmp/test.txt", make=True, is_file=True)
+    >>> # Creates file/folder or Delete file/folder on the remote server
+    >>> ubuntu_server.make_or_del
 
-    >>> # Delete file
-    >>> ubuntu_server.make_or_del("/tmp/test.txt", make=False, is_file=True)
-
-    >>> # Create folders
-    >>> ubuntu_server.make_or_del("/tmp/tests/test", make=True)
-
-    >>> # Delete folders
-    >>> ubuntu_server.make_or_del("/tmp/test", make=False)
-
+To see the usage and parameters of all this methods please see the API documentation.
 
 Application Management
 =======================
@@ -226,6 +221,7 @@ For example, let install and manage ``nginx`` http-server::
     >>> # Check if nginx is installed
     >>> ubuntu_server.is_package_installed('nginx')
     False
+
     >>> # Install nginx
     >>> ubuntu_server.install_package('nginx')
 
@@ -233,70 +229,95 @@ For example, let install and manage ``nginx`` http-server::
     >>> ubuntu_server.service_start('nginx')
     >>> # Nginx is ready to start accepting requests
 
-    >>> # You can also Restart(stop/start) nginx
-    >>> ubuntu_server.service_restart('nginx')
-
-
-Now that we have installed nginx and its running just fine,
-lets setup our custom domain and ssl::
-
-    >>> # SSL settings
-    >>> local_tar_file = "ssl.tgz"
-    >>> ssl_file = "/etc/ngix/ssl.tar"
-
-    >>> # Upload ssl cert
-    >>> ubuntu_server.put("local_tar_file", '/etc/ngix/')
-
-    >>> # Unzip ssl tar folder
-    >>> ubuntu_server.unzip(ssl_file, file_type="tar")
-
-    >>> # Delete the tar file now after untaring it
-    >>> ubuntu_server.make_or_del(ssl_file, make=False,
-    ...                           use_sudo=True)
-
-    >>> # mydomain settings
-    >>> config_path = '/etc/ngix/sites-available/'
-    >>> config_file = '/etc/ngix/sites-available/mydomain.com.conf'
-    >>> enable_file = '/etc/ngix/sites-enable/mydomain.com.conf'
-    >>> local_zip_file = "mydomain.com.conf.zip"
-
-    >>> # Upload config for mydomain.com
-    >>> ubuntu_server.put(local_zip_file, config_path)
-
-    >>> # Unzip config zip folder
-    >>> zip_file = "{0}.zip".format(config_file)
-    >>> ubuntu_server.unzip(zip_file, file_type="zip")
-
-    >>> # Delete the zip file now after unzipping it
-    >>> ubuntu_server.make_or_del(zip_file, make=False,
-    ...                           use_sudo=True)
-
-    >>> # Enable Nginx
-    >>> ubuntu_server.create_symbolic_link(config_file,
-    ...                                    enable_file)
-
-    >>> # Check if config file syntax is ok.
-    >>> ubuntu_server.sudo("ngix -t")
-
-    >>> # Reload new nginx config
-    >>> ubuntu_server.service_reload('nginx')
-
-    >>> # Check nginx status after reload
-    >>> ubuntu_server.service_status('nginx')
-
     >>> # Stop nginx
     >>> ubuntu_server.service_stop('nginx')
 
-    >>> # uninstall nginx maybe you are an apache guy
-    >>> ubuntu_server.uninstall_package('nginx')
+    >>> # You can also Restart(stop/start) nginx
+    >>> ubuntu_server.service_restart('nginx')
 
-    >>> # Install apache2
-    >>> ubuntu_server.install_package("apache2")
+    >>> # Reload after changing nginx config
+    >>> ubuntu_server.service_reload('nginx')
+
+    >>> # Check nginx status
+    >>> ubuntu_server.service_status('nginx')
+
+    >>> # uninstall nginx if you are an apache guy
+    >>> # ubuntu_server.uninstall_package('nginx')
+
+
+Bring it all together
+=======================
+Now that we have installed nginx and its up and running just fine,
+lets setup our custom domain and upload our ssl certs so that our
+site can now run using our site domain name over ``https``::
+
+    >>> from os.path import as pjoin
+
+    >>> # SSL settings
+    >>> local_ssl_tar_file = "ssl.tar.gz"
+    >>> remote_ssl_dir = "/etc/nginx/ssl/"
+    >>> remote_tmp_ssl_dir = "/tmp/ssl/"
+    >>> remote_ssl_tar_file = pjoin(remote_tmp_ssl_dir,
+    ...                            local_ssl_tar_file)
+
+    >>> # Create tmp folder(/tmp/ssl) to hold our cert
+    >>> ubuntu_server.dir_ensure(remote_tmp_ssl_dir)
+
+    >>> # Create final folder(/etc/nginx/ssl) to hold our cert
+    >>> ubuntu_server.dir_ensure(remote_ssl_dir)
+
+    >>> # Upload ssl cert to our server's /tmp/ssl
+    >>> ubuntu_server.put(local_path=local_ssl_tar_file,
+    ...                   remote_path=remote_tmp_ssl_dir,
+    ...                   use_sudo=True)
+
+    >>> # Uncompress ssl tar file and place content in nginx dir
+    >>> ubuntu_server.uncompress(remote_ssl_tar_file,
+                                 output_dir=remote_ssl_dir)
+
+    >>> # Clean up by deleting the tar file
+    >>> ubuntu_server.make_or_del(remote_ssl_tar_file,
+    ...                           make=False,
+    ...                           use_sudo=True)
+
+
+From the code above we uploaded our ssl cert from our workstation
+to our remote server, then placed it in a location where nginx can
+begin to use it.
+
+
+Next we will create a configuration for our site and load it so nginx
+knows where to server our site from lets::
+
+
+    >>> # mydomain settings
+
+    >>> local_zip_file = "mydomain.com.conf.zip"
+
+    >>> remote_tmp_zip_file = pjoin("/tmp", local_zip_file)
+    >>> remote_config_file = '/etc/ngix/sites-available/mydomain.com.conf'
+    >>> remote_enable_file = '/etc/ngix/sites-enable/mydomain.com.conf'
+
+    >>> # Upload config for mydomain.com
+    >>> ubuntu_server.put(local_path=local_zip_file,
+    ...                   remote_path="/tmp/",
+    ...                   use_sudo=True)
+
+    >>> # Unzip config file
+    >>> ubuntu_server.uncompress(remote_tmp_zip_file, file_type="zip")
+
+    >>> # Clean up by deleting the zip file now after unzipping it
+    >>> ubuntu_server.make_or_del(remote_tmp_zip_file, make=False, use_sudo=True)
+
+    >>> # Enable Nginx
+    >>> ubuntu_server.create_symbolic_link(remote_config_file, remote_enable_file)
+
+    >>> # Reload new nginx config
+    >>> ubuntu_server.service_reload('nginx')
 
 
 Complete!
 =========
 
-This has been a minimal walk through of the fab-objects sever class,
-for a more complete list of methods and functionality see the
-API docs for more information.
+This has been a minimal walk through of the fab-objects API,
+for a more complete list of methods see the API docs for more information.

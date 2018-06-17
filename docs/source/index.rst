@@ -8,7 +8,8 @@ fab-objects is a light-weight wrapper around the `Fabric <http://fabfile.org>`_ 
 
 .. note::
 
-    This documentation assumes you have some python knowledge and that you are running python3.6 or above.
+    This documentation assumes you have some python knowledge, that you are running
+    python3.6 or above and that your ssh key is located in ``~/.ssh`` directory.
 
 
 **fab-objects in action**::
@@ -28,6 +29,27 @@ fab-objects is a light-weight wrapper around the `Fabric <http://fabfile.org>`_ 
 
     >>> # Install your application
     >>> ubuntu_server.install_package('postgresql-9.6')
+
+
+We can run this same code with a different OS by calling the same method on the distro instance
+and all should just work fine. For example on a FreeBSD::
+
+
+    >>> from os import environ
+    >>> from fabobjects.distros import FreeBSD
+    >>> from . import server_config
+
+    >>> # Create a freebsd server instance
+    >>> free_bsd_server = FreeBSD(**server_config)
+
+    >>> # Update the server
+    >>> free_bsd_server.update()
+
+    >>> # Reboot the server
+    >>> free_bsd_server.rebootall()
+
+    >>> # Install your application
+    >>> free_bsd_server.install_package('postgresql-9.6')
 
 
 .. toctree::
