@@ -27,7 +27,6 @@ from fabric.api import cd
 from fabric.api import lcd
 from fabric.api import settings
 from fabric.api import local
-from fabric.api import execute
 from fabric.colors import yellow
 from fabric.colors import blue
 from fabric.colors import red
@@ -252,7 +251,6 @@ class BaseServer(object):
             return self.run('lsb_release -a').split('\n')[0].split(':\t')[1].rstrip()
         except IndexError:
             return self.run('lsb_release -a').split('\n')[1].split(':\t')[1].rstrip()
-
 
     @server_host_manager
     def clear_screen(self):
@@ -1060,6 +1058,53 @@ class BaseServer(object):
         self.sudo('{0} upgrade -y'.format(manager))
         self.sudo('{0} autoremove -y'.format(manager))
 
+    def create_symbolic_link(self, link_from, link_to):
+        """
+        Create a symbolic link
+        :param str link_from: The initial link
+        :param link_to: File/fold linked to
+        :return: None
+        """
+        return self.sudo("ln -s {0} {1}".format(link_from, link_to))
+
+    def uncompress(self, file_path, output_dir=None, file_type="tar"):
+        """
+        Uncompress tar or zip files or folder
+        :param file_path: The input file
+        :param output_dir: The output file
+        :param file_type: type if its zip or tar
+        :return: None
+        """
+        if output_dir is None:
+            base = '/'.join([path for path in filter(None, file_path.split('/')[:-1])])
+            output_dir = "/{0}".format(base)
+
+        if file_type == "tar":
+            return self.sudo('tar xvzf -C {0} {1}'.format(output_dir, file_path))
+
+        if file_type == "zip":
+            return self.sudo('unzip {0} {1}'.format(output_dir, file_path))
+        raise TypeError
+
+    def compress(self, input_file, output_file=None, file_type="tar"):
+        """
+        Compress tar or zip files or folder
+        :param input_file: The input file
+        :param output_file: The output file
+        :param file_type: type if its zip or tar
+        :return: None
+        """
+        if output_file is None:
+            base = '/'.join([path for path in filter(None, input_file.split('/')[:-1])])
+            output_file = "/{0}/{}.tar.gz".format(base, input_file.split('/')[-1])
+
+        if file_type == "tar":
+            return self.sudo("tar -czvf {0}.tat.gz {1}".format(input_file, output_file))
+
+        if file_type == "zip":
+            return self.sudo('zip -r {0} {1}'.format(output_file, input_file))
+        raise TypeError
+
     @server_host_manager
     def make_or_del(self, path, make=True, use_sudo=False, verbose=False, is_file=False):
         """makes or delete a remote path if it exist/not exist"""
@@ -1120,7 +1165,6 @@ class BaseServer(object):
             self.sudo('ufw allow from {0} proto {1} to any port {2}'.format(host, proto, port))
         else:
             print('Invalid host or port entered')
-            # setup firewall
 
     @server_host_manager
     def delete_firewall_number(self, num):
@@ -1270,11 +1314,6 @@ class BaseServer(object):
             return run(command, **kwargs)
 
     @server_host_manager
-    def execute(self, task, *args, **kwargs):
-        with hide("running"):
-            return execute(task, *args, **kwargs)
-
-    @server_host_manager
     def append(self, filename, text, show=True,
                use_sudo=False, partial=False,
                escape=True, shell=False):
@@ -1392,16 +1431,16 @@ class BaseServer(object):
         get(remote_path, local_path=None, use_sudo=False, temp_dir="")
         """
         with hide("running"):
-            get(remote_path, local_path=local_path, use_sudo=use_sudo, temp_dir=temp_dir)
+            return get(remote_path, local_path=local_path, use_sudo=use_sudo, temp_dir=temp_dir)
 
     @server_host_manager
     def sed(self, filename, before, after, limit='',
             use_sudo=False, backup='.bak', flags='', shell=False):
         """ Runs a shell command on the remote server."""
         with hide("running"):
-            sed(filename, before, after, limit=limit,
-                use_sudo=use_sudo, backup=backup,
-                flags=flags, shell=shell)
+            return sed(filename, before, after, limit=limit,
+                       use_sudo=use_sudo, backup=backup,
+                       flags=flags, shell=shell)
 
     @server_host_manager
     def postfix_conf(self):
