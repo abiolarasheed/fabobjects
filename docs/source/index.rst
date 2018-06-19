@@ -16,7 +16,7 @@ fab-objects is a light-weight wrapper around the `Fabric <http://fabfile.org>`_ 
 
     >>> from os import environ
     >>> from fabobjects.distros import Ubuntu
-    >>> from . import server_config
+    >>> from myapp.conf import server_config
 
     >>> # Create an ubuntu server instance
     >>> ubuntu_server = Ubuntu(**server_config)
@@ -56,6 +56,7 @@ and all should just work fine. For example on a FreeBSD::
    :maxdepth: 2
 
    tutorial
+   applications
 
 
 The API Documentation
