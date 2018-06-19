@@ -259,13 +259,13 @@ class BaseServer(object):
     @server_host_manager
     def ping(self):
         try:
-            response = self.local("ping -c 4 {0}".format(self.hostname), capture=True)
+            response = self.local("ping -c 4 {0}".format(self.ip), capture=True)
             ping_count = response.split('\n')[-2].split(', ')[1].split(' ')[0]
 
             if ping_count == '4':
-                return True
+                return "Pong"
             else:
-                return False
+                return
         except:
             return False
 
