@@ -15,7 +15,7 @@ fab-objects is a light-weight wrapper around the `Fabric <http://fabfile.org>`_ 
 **fab-objects in action**::
 
     >>> from os import environ
-    >>> from fabobjects.distros import Ubuntu
+    >>> from fabobjects import Ubuntu
     >>> from myapp.conf import server_config
 
     >>> # Create an ubuntu server instance
@@ -36,7 +36,7 @@ and all should just work fine. For example on a FreeBSD::
 
 
     >>> from os import environ
-    >>> from fabobjects.distros import FreeBSD
+    >>> from fabobjects import FreeBSD
     >>> from . import server_config
 
     >>> # Create a freebsd server instance

@@ -30,7 +30,7 @@ let ssh into this box and set it up using ``root@199.199.199.99``.
 ::
 
     >>> from os import environ
-    >>> from fabobjects.distros import Ubuntu
+    >>> from fabobjects import Ubuntu
 
     >>> workstation_ip = "58.588.588.58"
 
@@ -80,7 +80,7 @@ on some OS.
 ::
 
     >>> from os import environ
-    >>> from fabobjects.distros import Ubuntu
+    >>> from fabobjects import Ubuntu
 
     >>> admin_user = "ubuntu"
     >>> workstation_ip = "58.588.588.58"

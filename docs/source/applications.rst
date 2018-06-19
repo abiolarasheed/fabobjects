@@ -15,7 +15,7 @@ Managing Redis
 For this example we will install and configure redis on our server::
 
 
-    >>> from fabobjects.app import RedisServer
+    >>> from fabobjects import RedisServer
     >>> from os import environ
 
     >>> ubuntu_server = Ubuntu(**config_dict)
@@ -50,7 +50,7 @@ In our next example we will set up a redis-server that can accepts ssl connectio
 cert and password authentication::
 
 
-    >>> from fabobjects.distros import Debian, Ubuntu
+    >>> from fabobjects import Debian, Ubuntu
     >>> from myapp.conf import config_dict, app_config_dict
 
     >>> # Create our servers
@@ -63,8 +63,6 @@ The code above shows our two servers we created, one will hold our flask app
 to listen and accept connection on its internal ip('10.10.10.1') over ssl
 but with password authentication.::
 
-
-    >>> # Create an ubuntu server
 
     >>> # Redis configuration
     >>> redis_config = {"maxmemory": "256mb",
@@ -124,8 +122,7 @@ open our firewalls to allow connection from the client to the server::
     "Hello"
 
 
-
-Managing Application
+Managing PostgreSql
 ======================
 
 
