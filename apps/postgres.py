@@ -9,7 +9,7 @@ from fabobjects.utils import server_host_manager, random_password
 
 
 PG_VERSION = "9.6"
-GIST_VERSION = "2.3"
+GIS_VERSION = "2.3"
 HBA_TEXT = ('local   all    postgres                     ident\n'
             'host    replication replicator  0.0.0.0/0   md5\n'
             'local   all    all                          password\n'
@@ -35,18 +35,19 @@ class PostgresServer(BaseApp):
     """
     def __init__(self, *args, **kwargs):
         super(PostgresServer, self).__init__(*args, **kwargs)
-        name = 'master_setup'
+        self.name = 'master_setup'
         self.service_name = 'postgresql'
+        self.db_pass = kwargs.get("db_pass", None)
         self.replicator_pass = kwargs.get('replicator_pass', None)
         self.service_port = kwargs.get('service_port', '5432')
-        self.db_version = kwargs.get("", PG_VERSION)
-        self.gist_version = kwargs.get("", GIST_VERSION)
-        self.encrypt = kwargs.get("", 'md5')
-        self.hba_text = kwargs.get("", HBA_TEXT)
-        self.postgres_config = kwargs.get("", POSTGRES_CONFIG)
-        self.data_dir_default_base = kwargs.get("", '/var/pgsql')
-        self.binary_path = kwargs.get("", None)
-        self.version_directory_join = kwargs.get("", '.')
+        self.db_version = kwargs.get("db_version", PG_VERSION)
+        self.gis_version = kwargs.get("gis_version", GIS_VERSION)
+        self.encrypt = kwargs.get("encrypt", 'md5')
+        self.hba_text = kwargs.get("hba_text", HBA_TEXT)
+        self.postgres_config = kwargs.get("postgres_config", POSTGRES_CONFIG)
+        self.data_dir_default_base = kwargs.get("data_dir_default_base", '/var/pgsql')
+        self.binary_path = kwargs.get("binary_path", None)
+        self.version_directory_join = kwargs.get("version_directory_join", '.')
 
     @server_host_manager
     def __get_db_version(self, db_version=PG_VERSION):
@@ -56,54 +57,54 @@ class PostgresServer(BaseApp):
 
     @server_host_manager
     def __install(self, enable_postgis=False, db_version=PG_VERSION,
-                  gist_version=GIST_VERSION):
+                  gis_version=GIS_VERSION):
         """
 
         :param enable_postgis:
         :param db_version:
-        :param gist_version:
+        :param gis_version:
         :return:
         """
         db_version = db_version or self.db_version
-        gist_version = gist_version or self.gist_version
-        self.install_package("postgresql-{0}-postgis-{1}".format(db_version, gist_version))
+        gis_version = gis_version or self.gis_version
+        self.install_package("postgresql-{0}-postgis-{1}"
+                             .format(db_version, gis_version))
 
         if enable_postgis:
             self.enable_postgis()
+
+        self.install_package("pgtune")
 
     def install(self):
         return self.__install()
 
     @server_host_manager
     def turn_pg(self):
-        '''usefull info found in link below
-        http://brittoc.wordpress.com/2012/11/09/tune-your-postgres-with-pgtune/
-        '''
         config_file = '/etc/postgresql/{0}/main/postgresql.conf'.format(self.db_version)
         out_file = 'postgresql.conf'
-        with self.cd('/tmp'):
-            self.run('wget http://pgfoundry.org/frs/download.php/2449/pgtune-0.9.3.tar.gz')
-            self.run('tar -zxvf pgtune-0.9.3.tar.gz')
-            with self.cd('pgtune-0.9.3'):
-                self.sudo('python pgtune -i {0} -o {1}'.format(config_file, out_file))
-                self.sudo('cp {0} {1}.bak'.format(config_file, config_file))
-                self.sudo('mv %s %s'%(out_file, config_file))
-                self.service_reload('postgresql')
-            self.sudo('rm -rf pgtun*')
+
+        self.sudo('python pgtune -i {0} -o {1}'.format(config_file, out_file))
+        self.sudo('cp {0} {1}.bak'.format(config_file, config_file))
+        self.sudo('mv {0} {1}'.format(out_file, config_file))
+        self.service_reload('postgresql')
 
     @server_host_manager
     def psql(self, sql, show=True, use_table=None):
         """ Runs SQL against the project's database. """
-        psql = 'psql {0} -c'.format(use_table) if use_table else 'psql -c'
+        if use_table:
+            psql_ = 'psql {0} -c'.format(use_table)
+        else:
+            psql_ = 'psql -c'
 
-        out = self.sudo('{0} \'{1}\' '.format(psql, sql), user='postgres')
+        out = self.sudo('{0} \'{1}\' '.format(psql_, sql), user='postgres')
+
         if show:
             self.print_command(sql)
         return out
 
     @server_host_manager
     def create_db(self, dbname=None):
-        command = "CREATE DATABASE {}".format(dbname)
+        command = "CREATE DATABASE {0}".format(dbname)
         self.psql(command)
 
     @server_host_manager
@@ -150,8 +151,8 @@ class PostgresServer(BaseApp):
     @server_host_manager
     def __setup_parameter(self, filename, **kwargs):
         for key, value in kwargs.items():
-            origin = "#%s =" %key
-            new = "%s = %s" %(key, value)
+            origin = "#{0} =".format(key)
+            new = "{0} = {1}" %(key, value)
             self.sudo('sed -i "/{0}/ c\{1}" {2}'.format(origin, new, filename))
 
     @server_host_manager
@@ -176,16 +177,17 @@ class PostgresServer(BaseApp):
         if self.exists(postgres_conf, use_sudo=True):
             self.__setup_parameter(postgres_conf, **config)
         else:
-            print ('Could not find file {0}. Please make sure postgresql was '
+            print('Could not find file {0}. Please make sure postgresql was '
                    'installed and data dir was created correctly.'.format(postgres_conf))
             sys.exit(1)
 
     @server_host_manager
     def __setup_archive_dir(self, data_dir):
-        ''' see link for more detail -->
-            http://www.postgresql.org/docs/9.3/interactive/\
-            continuous-archiving.html
-        '''
+        """
+        Set up dir for continuous archiving.
+        :param data_dir:
+        :return:
+        """
         archive_dir = os.path.join(data_dir, 'wal_archive')
         self.sudo("mkdir -p {0}".format(archive_dir))
         self.sudo("chown postgres:postgres {0}".format(archive_dir))
@@ -193,7 +195,7 @@ class PostgresServer(BaseApp):
 
     @server_host_manager
     def __get_home_dir(self):
-        return super(PostgresServer, self)._get_home_dir(user='postgres')[0]
+        return self.__get_home_dir(user='postgres')[0]
 
     @server_host_manager
     def __setup_ssh_key(self, pswd):
@@ -250,7 +252,7 @@ class PostgresServer(BaseApp):
         :return:
         """
         self.__install(enable_postgis=enable_postgis, db_version=db_version,
-                       gist_version=kwargs.get('gist_version'))
+                       gis_version=kwargs.get('gis_version'))
 
         data_dir = self.__get_data_dir(db_version)
         config_dir = self.__get_config_dir(db_version,)
@@ -264,7 +266,7 @@ class PostgresServer(BaseApp):
         if enable_postgis:
             self.create_postgis_db(dbname)
         else:
-            self.create_db(dbname = dbname)
+            self.create_db(dbname=dbname)
         self.create_user(user=user, passwd=passwd)
         self.grant_permision(permission_type='All',
                              table_name=dbname, role_name=user)
@@ -277,42 +279,41 @@ class PostgresServer(BaseApp):
     @server_host_manager
     def db_pass(self):
         """ Prompts for the database password if unknown. """
-        if not self.env.db_pass:
-           self.env.db_pass = getpass("Enter the database password: ")
-        return self.env.db_pass
+        if not self.db_pass or self.db_pass is None:
+            self.db_pass = getpass("Enter the database password: ")
+        return self.db_pass
 
     @server_host_manager
     def postgres_run(self, command):
         """ Runs the given command as the postgres user. """
-        show = not command.startswith("psql")
-        return self.run("sudo -u root sudo -u postgres %s" % command, show=show)
+        return self.run_as_user(command, user="postgres")
 
     @server_host_manager
     def clone_db(self, remotehost, remotehost_user, remote_db, local_host_user):
-        command = 'pg_dump -C -h {0} -U \
-        {1} -d {2} | psql -h {4} -d {2} -U abi'.\
-        format(remotehost,remotehost_user,remote_db,local_host_user, self.ip)
-        self.sudo(command,user='postgres')
+        command = 'pg_dump -C -h {0} -U {1} -d {2} | psql -h {4} -d {2} -U {3}'\
+            .format(remotehost, remotehost_user, remote_db, local_host_user, self.ip)
+        self.sudo(command, user='postgres')
 
     @server_host_manager
-    def backup(self, proj_name, filename):
+    def backup(self, project_name, filename):
         """ Backs up the database. """
-        return self.postgres_run("pg_dump -Fc %s > %s" % (proj_name, filename))
+        return self.postgres_run("pg_dump -Fc {0} > {0}".format(project_name, filename))
 
     @server_host_manager
-    def restore(self, filename):
+    def restore(self, project_name, filename):
         """ Restores the database. """
-        return self.postgres_run("pg_restore -c -d %s %s" % (self.env.proj_name, filename))
+        return self.postgres_run("pg_restore -c -d %s %s" % (project_name, filename))
 
     @server_host_manager
     def set_daily_backup(self, password):
         # configure daily dumps of all databases
         self.dir_ensure('/var/backups/postgresql', recursive=True)
-        self.sudo("echo 'localhost:*:*:postgres:%s' > /root/.pgpass" % password)
+        self.echo("localhost:*:*:postgres:{0}".format(password),
+                  to="/root/.pgpass", use_sudo=True, append=True)
         self.sudo('chmod 600 /root/.pgpass')
-        self.sudo("echo '0 7 * * * pg_dumpall --username postgres --file "
-                  "/var/backups/postgresql/postgresql_$(date +%%Y-%%m-%%d).dump' > "
-                  "/etc/cron.d/pg_dump")
+        self.echo("0 7 * * * pg_dumpall --username postgres --file /var/backups/postgresql/postgresql_$"
+                  "(date +%%Y-%%m-%%d).dump",
+                  to="/etc/cron.d/pg_dump")
 
 
 class PostgresServerReplica(PostgresServer):
