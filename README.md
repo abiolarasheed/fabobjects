@@ -17,7 +17,7 @@ A collection of simple python classes for executing remote task using Fabric.
 
 Sysadmin is not so fun for everyone and command line could be intimidating for some developers. Different operating
 systems do things differently and everyone of them seems to require a steep learning curve. I wanted to create a simple
-python library where any python developer manage any os and deploy apps to the server without the need of understanding
+python library where any python developer can manage any os and deploy apps to the server without the need of understanding
 the underlining system.
 
 ## App Description
