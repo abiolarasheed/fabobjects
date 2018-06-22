@@ -4,7 +4,8 @@ fabobjects
 A collection of simple python classes for executing remote task using Fabric.
 
 Table of Contents
-********************
+##################
+
 
 1. [About](#about)
 2. [App Description - What this library does and why it is useful](#app-description)
@@ -29,20 +30,25 @@ App Description
 Python developers want to spend time developing apps and not spending time administering a server or endless configuration before they can afford to hire a competent sysadmin.
 Fabobjects makes it simple for python developers to easily secure a server and deploy their apps using pure python and minimal code.
 
+
 Installation
 =============
 
-```bash
-pip install git+https://github.com/abiolarasheed/fabobjects.git
-```
+.. code-block:: bash
+
+
+    pip install git+https://github.com/abiolarasheed/fabobjects.git
+
 
 Usage
-==========
+=====
 
 This sample assumes you are using a fresh server created in the cloud with just `root` access.
 We will create an `admin user` grant him\her sudo powers, then harden the server.
 
-```python
+::
+
+
     >>> from os import environ
     >>> from fabobjects.distros import CentOS, Debian, FreeBsd, Ubuntu
 
@@ -93,11 +99,12 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
 
     >>> centos_server.uninstall_package("mysql-server")  #  uninstall single application
 
-```
 
 To install applications on your server using the example servers created above:
 
-```python
+::
+
+
     >>> from fabobjects.apps.django import DjangoApp
     >>> from fabobjects.apps.nginx import NginxServer
     >>> from fabobjects.apps.postgres import PostgresServer
@@ -123,10 +130,9 @@ To install applications on your server using the example servers created above:
     >>> ubuntu_server.deploy_all()
     >>> # Install and configure all app to this server, note this will be done sequentially
 
-```
 
 Limitations
-============
+===========
 
 This app has been tested on the following platforms:
 
@@ -141,12 +147,13 @@ For extensive documentation build the docs using the information below or `read 
 .. _`read it on readthedocs`: https://fabobjects.readthedocs.io/en/latest/
 
 
-```bash
+.. code-block:: bash
     cd docs
     make build
-```
+
 
 Contributors
 =============
 
 The list of contributors can be found at: [https://github.com/abiolarasheed/fabobjects/graphs/contributors](https://github.com/abiolarasheed/fabobjects/graphs/contributors)
+
