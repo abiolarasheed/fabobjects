@@ -128,6 +128,17 @@ This app has been tested on the following platforms:
 
 ## Documentation
 
+For extensive documentation build the docs using the information below or `read it on readthedocs`_
+
+.. _`read it on readthedocs`: https://fabobjects.readthedocs.io/en/latest/
+
+
+```bash
+    cd docs
+    make build
+```
+
+
 ## Contributors
 
 The list of contributors can be found at: [https://github.com/abiolarasheed/fabobjects/graphs/contributors](https://github.com/abiolarasheed/fabobjects/graphs/contributors)
