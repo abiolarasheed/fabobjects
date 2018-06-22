@@ -92,7 +92,7 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
 To install applications on your server using the example servers created above:
 
 ```python
-    >>> from fabobjects DjangoApp, NginxServer, PostgresServer, RedisServer
+    >>> from fabobjects import DjangoApp, NginxServer, PostgresServer, RedisServer
 
     >>> # Lets deploy a django app with postgres, redis, nginx all on a single server box.
     >>> postgres = ubuntu_server.create_app(PostgresServer)
