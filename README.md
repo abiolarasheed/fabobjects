@@ -138,7 +138,6 @@ For extensive documentation build the docs using the information below or `read 
     make build
 ```
 
-
 ## Contributors
 
 The list of contributors can be found at: [https://github.com/abiolarasheed/fabobjects/graphs/contributors](https://github.com/abiolarasheed/fabobjects/graphs/contributors)
