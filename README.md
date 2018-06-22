@@ -38,7 +38,7 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
 
 ```python
     >>> from os import environ
-    >>> from fabobjects.distros import CentOS, Debian, FreeBsd, Ubuntu
+    >>> from fabobjects import CentOS, Debian, FreeBsd, Ubuntu
 
     >>> root_user = "root"
     >>> # some providers give you the root when instance is created so we login with it on first login
@@ -92,10 +92,7 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
 To install applications on your server using the example servers created above:
 
 ```python
-    >>> from fabobjects.apps.django import DjangoApp
-    >>> from fabobjects.apps.nginx import NginxServer
-    >>> from fabobjects.apps.postgres import PostgresServer
-    >>> from fabobjects.apps.redis import RedisServer
+    >>> from fabobjects DjangoApp, NginxServer, PostgresServer, RedisServer
 
     >>> # Lets deploy a django app with postgres, redis, nginx all on a single server box.
     >>> postgres = ubuntu_server.create_app(PostgresServer)
