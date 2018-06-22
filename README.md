@@ -1,12 +1,8 @@
-===========
-fabobjects
-===========
+# fabobjects
 
 A collection of simple python classes for executing remote task using Fabric.
 
-
-Table of Contents
-******************
+#### Table of Contents
 
 1. [About](#about)
 2. [App Description - What this library does and why it is useful](#app-description)
@@ -17,39 +13,30 @@ Table of Contents
 7. [Contributors - Everyone is welcome to contribute](#contributors)
 
 
-About
-===========
+## About
 
 Sysadmin is not so fun for everyone and command line could be intimidating for some developers. Different operating
 systems do things differently and everyone of them seems to require a steep learning curve. I wanted to create a simple
 python library where any python developer can manage any os and deploy apps to the server without the need of understanding
 the underlining system.
 
-
-App Description
-===================
+## App Description
 
 Python developers want to spend time developing apps and not spending time administering a server or endless configuration before they can afford to hire a competent sysadmin.
 Fabobjects makes it simple for python developers to easily secure a server and deploy their apps using pure python and minimal code.
 
+## Installation
 
+```bash
+pip install git+https://github.com/abiolarasheed/fabobjects.git
+```
 
-Installation
-=============
-
-.. code:: bash
-
-    pip install git+https://github.com/abiolarasheed/fabobjects.git
-
-
-Usage
-=====
+## Usage
 
 This sample assumes you are using a fresh server created in the cloud with just `root` access.
-We will create an `admin user` grant him\her sudo powers, then harden the server:
+We will create an `admin user` grant him\her sudo powers, then harden the server.
 
-.. code:: python
-
+```python
     >>> from os import environ
     >>> from fabobjects.distros import CentOS, Debian, FreeBsd, Ubuntu
 
@@ -100,11 +87,11 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
 
     >>> centos_server.uninstall_package("mysql-server")  #  uninstall single application
 
+```
 
 To install applications on your server using the example servers created above:
 
-.. code:: python
-
+```python
     >>> from fabobjects.apps.django import DjangoApp
     >>> from fabobjects.apps.nginx import NginxServer
     >>> from fabobjects.apps.postgres import PostgresServer
@@ -130,31 +117,28 @@ To install applications on your server using the example servers created above:
     >>> ubuntu_server.deploy_all()
     >>> # Install and configure all app to this server, note this will be done sequentially
 
+```
 
-Limitations
-============
+## Limitations
 
 This app has been tested on the following platforms:
 
 * Debian 8.10, 9,04
 * Ubuntu 14.04, 16.04, 18.04
 
-
-Documentation
-==============
+## Documentation
 
 For extensive documentation build the docs using the information below or `read it on readthedocs`_
 
 .. _`read it on readthedocs`: https://fabobjects.readthedocs.io/en/latest/
 
-.. code:: bash
 
+```bash
     cd docs
     make build
+```
 
-
-Contributors
-=============
+## Contributors
 
 The list of contributors can be found at: [https://github.com/abiolarasheed/fabobjects/graphs/contributors](https://github.com/abiolarasheed/fabobjects/graphs/contributors)
 
