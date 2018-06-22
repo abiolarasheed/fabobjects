@@ -3,8 +3,9 @@ fabobjects
 
 A collection of simple python classes for executing remote task using Fabric.
 
+
 Table of Contents
-##################
+******************
 
 
 1. [About](#about)
@@ -24,11 +25,13 @@ systems do things differently and everyone of them seems to require a steep lear
 python library where any python developer can manage any os and deploy apps to the server without the need of understanding
 the underlining system.
 
+
 App Description
 ===================
 
 Python developers want to spend time developing apps and not spending time administering a server or endless configuration before they can afford to hire a competent sysadmin.
 Fabobjects makes it simple for python developers to easily secure a server and deploy their apps using pure python and minimal code.
+
 
 
 Installation
@@ -44,9 +47,7 @@ Usage
 =====
 
 This sample assumes you are using a fresh server created in the cloud with just `root` access.
-We will create an `admin user` grant him\her sudo powers, then harden the server.
-
-::
+We will create an `admin user` grant him\her sudo powers, then harden the server::
 
 
     >>> from os import environ
@@ -100,9 +101,7 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
     >>> centos_server.uninstall_package("mysql-server")  #  uninstall single application
 
 
-To install applications on your server using the example servers created above:
-
-::
+To install applications on your server using the example servers created above::
 
 
     >>> from fabobjects.apps.django import DjangoApp
@@ -132,15 +131,17 @@ To install applications on your server using the example servers created above:
 
 
 Limitations
-===========
+============
 
 This app has been tested on the following platforms:
 
 * Debian 8.10, 9,04
 * Ubuntu 14.04, 16.04, 18.04
 
+
 Documentation
-=============
+==============
+
 
 For extensive documentation build the docs using the information below or `read it on readthedocs`_
 
@@ -148,6 +149,8 @@ For extensive documentation build the docs using the information below or `read 
 
 
 .. code-block:: bash
+
+
     cd docs
     make build
 
