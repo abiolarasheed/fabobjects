@@ -1,3 +1,4 @@
+===========
 fabobjects
 ===========
 
@@ -6,7 +7,6 @@ A collection of simple python classes for executing remote task using Fabric.
 
 Table of Contents
 ******************
-
 
 1. [About](#about)
 2. [App Description - What this library does and why it is useful](#app-description)
@@ -37,8 +37,7 @@ Fabobjects makes it simple for python developers to easily secure a server and d
 Installation
 =============
 
-.. code-block:: bash
-
+.. code:: bash
 
     pip install git+https://github.com/abiolarasheed/fabobjects.git
 
@@ -47,8 +46,9 @@ Usage
 =====
 
 This sample assumes you are using a fresh server created in the cloud with just `root` access.
-We will create an `admin user` grant him\her sudo powers, then harden the server::
+We will create an `admin user` grant him\her sudo powers, then harden the server:
 
+.. code:: python
 
     >>> from os import environ
     >>> from fabobjects.distros import CentOS, Debian, FreeBsd, Ubuntu
@@ -101,8 +101,9 @@ We will create an `admin user` grant him\her sudo powers, then harden the server
     >>> centos_server.uninstall_package("mysql-server")  #  uninstall single application
 
 
-To install applications on your server using the example servers created above::
+To install applications on your server using the example servers created above:
 
+.. code:: python
 
     >>> from fabobjects.apps.django import DjangoApp
     >>> from fabobjects.apps.nginx import NginxServer
@@ -142,14 +143,11 @@ This app has been tested on the following platforms:
 Documentation
 ==============
 
-
 For extensive documentation build the docs using the information below or `read it on readthedocs`_
 
 .. _`read it on readthedocs`: https://fabobjects.readthedocs.io/en/latest/
 
-
-.. code-block:: bash
-
+.. code:: bash
 
     cd docs
     make build
