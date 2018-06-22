@@ -128,9 +128,7 @@ This app has been tested on the following platforms:
 
 ## Documentation
 
-For extensive documentation build the docs using the information below or `read it on readthedocs`_
-
-.. _`read it on readthedocs`: https://fabobjects.readthedocs.io/en/latest/
+For extensive documentation build the docs using the information below or [read it on readthedocs](https://fabobjects.readthedocs.io/en/latest/)
 
 
 ```bash
