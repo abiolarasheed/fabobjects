@@ -1,5 +1,7 @@
 # fabobjects
 
+[![Build Status](https://travis-ci.org/abiolarasheed/fabobjects.svg?branch=master)](https://travis-ci.org/abiolarasheed/fabobjects)
+
 A collection of simple python classes for executing remote task using Fabric.
 
 #### Table of Contents
