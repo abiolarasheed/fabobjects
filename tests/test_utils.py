@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 import unittest
 
 from fabric.api import env
-from fabric.operations import run, local
+from fabric.operations import local
 
 from fabobjects.utils import (log_call, random_password,
                               return_distinct_servers,
@@ -32,6 +32,7 @@ class UtilsTestCase(unittest.TestCase):
         self.assertTrue(len(return_distinct_servers(servers)) == 3)
 
     def test_timing(self):
+
         @timing
         def fake_func():
             pass
