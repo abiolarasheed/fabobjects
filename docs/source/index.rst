@@ -1,5 +1,5 @@
-fab-objects: Simple Oop Dev-Tools!
-==================================
+fab-objects: Simple Python DevOps-Tool!
+========================================
 **fab-objects** is a high-level Python library usefull for perfuming common Unix system administration task, by providing a
 set of Python Classes for executing shell command on a remote system via SSH. It presents a unified, familiar API that allows you to logically plan deployments and maintenance.
 
