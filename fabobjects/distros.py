@@ -127,7 +127,7 @@ class BaseServer(object):
             """
             def __init__(self, *args, **kwargs):
                 ServerClass.__init__(self, *args, **kwargs)
-                AppClass.__init__(self, *args, **kwargs)
+                super(Application, self).__init__(*args, **kwargs)
 
         hostname = self._hostname or self.hostname
         app = Application(domain_name=self._domain_name,
