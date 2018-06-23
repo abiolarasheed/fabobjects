@@ -3,7 +3,7 @@ from __future__ import with_statement
 
 import unittest
 
-from mock import patch
+from unittest.mock import patch
 
 from tests.utils import (fake_local, fake_run, fake_sed,
                          fake_sudo, TestServerHostManager)

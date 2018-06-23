@@ -5,13 +5,11 @@ from __future__ import unicode_literals
 """
 Stand-alone stream mocking decorator for easier imports.
 """
-import mock
+from unittest import mock
+
 import sys
 
-try:
-    from StringIO import StringIO  # No need for cStringIO at this time
-except ImportError:
-    from io import StringIO
+from io import StringIO
 
 
 class CCStringIO(StringIO):
@@ -37,17 +35,6 @@ class CCStringIO(StringIO):
         self.writers = writers
 
     def write(self, s):
-        # unfortunately, fabric writes into StringIO both so-called
-        # bytestrings and unicode strings. obviously, bytestrings may
-        # contain non-ascii symbols. that leads to type-conversion
-        # issue when we use string's join (inside getvalue()) with
-        # a list of both unicodes and bytestrings. in order to avoid
-        # this issue we should convert all input unicode strings into
-        # utf-8 bytestrings (let's assume that slaves encoding is utf-8
-        # too so we won't have encoding mess in the output file).
-        if isinstance(s, unicode):
-            s = s.encode('utf-8')
-
         StringIO.write(self, s)
         for writer in self.writers:
             writer.write(s)
