@@ -124,6 +124,19 @@ open our firewalls to allow connection from the client to the server::
 
 Managing PostgreSql
 ======================
+For this example we will install and configure redis on our server::
+
+
+Managing Nginx
+=================
+
+
+Managing Git Remote Server
+===========================
+
+
+Managing Python Applications
+=============================
 
 
 Bring it all together
