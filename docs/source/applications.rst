@@ -39,6 +39,7 @@ For this example we will install and configure redis on our server::
     You have to pass the application class and the application config to the server
     instance ``create_app`` method to instantiate an application. This gives the
     application all the server settings, along with all the server methods too.
+
     Example: **redis = ubuntu_server.create_app(RedisServer, redis_config)**
 
 
@@ -141,6 +142,15 @@ is relatively simple with fab-objects::
     >>> # Please note that the db_user will be granted ``All`` permissions on db
 
 
+.. note::
+
+    Please note that postgres 9.5 and postgis 2.2 are installed by default,
+    and you can change this passing the version you want to the constructor.
+
+    Example: db_config = {..., 'gis_version': '2.3', 'db_version':'9.6'}
+
+
+
 Now that we have postgres up and running lets run some commands and see how things work::
 
     >>> db_name = "testdb2"
@@ -184,7 +194,7 @@ Now that we have postgres up and running lets run some commands and see how thin
     >>> postgres.set_daily_backup(password)
 
 
-**Install PostGIS and PostgreSQL**
+**Installing PostGIS and PostgreSQL**
 
 PostGis is installed by default, except if you turn it off when initializing your app by
 setting ``gis_version = None``::
@@ -210,6 +220,17 @@ setting ``gis_version = None``::
 
 Now postGIS is installed along with postgreSQL and enabled. You can
 begin to create your geographic objects and run location queries in SQL.
+
+
+**Postgresql Replication**::
+
+
+    >>> from fabobjects import PostgresServer, PostgresServerReplica
+
+    >>> # server config
+    >>> pry_db_config = {}
+    >>> replica_config = {}
+
 
 
 Managing Nginx
