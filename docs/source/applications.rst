@@ -185,6 +185,7 @@ Now that we have postgres up and running lets run some commands and see how thin
 
 
 **Install PostGIS and PostgreSQL**
+
 PostGis is installed by default, except if you turn it off when initializing your app by
 setting ``gis_version = None``::
 
