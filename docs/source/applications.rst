@@ -122,9 +122,93 @@ open our firewalls to allow connection from the client to the server::
     "Hello"
 
 
-Managing PostgreSql
+Managing PostgreSQL
 ======================
-For this example we will install and configure redis on our server::
+PostgreSQL, is an object-relational database management system often
+used in many python applications. Configuring and managing postgres
+is relatively simple with fab-objects::
+
+    >>> from fabobjects import PostgresServer
+
+    >>> # Note if gis_version is not set to None PostGis will we installed along with Postgres
+    >>> db_config = {"db_pass":"password1", "db_name":"testdb1", "db_user":"test_db_user"
+    ...              "gis_version": None}
+    >>>
+    >>> postgres = ubuntu_server.create_app(PostgresServer, db_config)
+
+    >>> # install and configure postgres
+    >>> postgres.deploy()
+    >>> # Please note that the db_user will be granted ``All`` permissions on db
+
+
+Now that we have postgres up and running lets run some commands and see how things work::
+
+    >>> db_name = "testdb2"
+    >>> db_user = "test_db_user2"
+    >>> passwd = "password2"
+
+    >>> # Create a database
+    >>> postgres.create_db(dbname=db_name)
+
+    >>> # Create a new db user
+    >>> postgres.create_db_user(user=db_user, passwd=passwd)
+
+    >>> # Grant user permission
+    >>> postgres.grant_permission(permission_type='SELECT', db=db_name,
+    ...                           role_name=db_user)
+
+    >>> # Run SQL commands
+    >>> postgres.psql("SELECT * FROM books WHERE book_id >= 100 ORDER BY book_id ASC;")
+
+    >>> # Run Shell Command with user postgres
+    >>> postgres.postgres_run('touch /tmp/postgres.txt')
+
+    >>> # Clone / backup / restore settings
+    >>> remote_host = "155.155.155.55"
+    >>> remote_host_user = "db_user"
+    >>> remote_db_name = "test1"
+    >>> local_host_user = "am_local"
+    >>> backup_filename = "backup_filename.sql"
+
+    >>> # Clone a remote db
+    >>> postgres.clone_db(remote_host, remote_host_user, remote_db_name, local_host_user)
+
+    >>> # Backup a db
+    >>> postgres.backup(remote_db_name, backup_filename)
+
+    >>> # Restore a db
+    >>> postgres.restore(remote_db_name, filename)
+
+    >>> # Set Up daily backups
+    >>> password = "somepasswords"
+    >>> postgres.set_daily_backup(password)
+
+
+**Install PostGIS and PostgreSQL**
+PostGis is installed by default, except if you turn it off when initializing your app by
+setting ``gis_version = None``::
+
+
+    >>> from fabobjects import Ubuntu, PostgresServer
+    >>> from myapp import server_config
+
+    >>> ubuntu_server = Ubuntu(**server_config)
+
+    >>> db_config = {"db_pass":"password1", "db_name":"testdb1", "db_user":"test_db_user"}
+
+    >>> # By default postgres-9.5 gets installed with postgis-2.2
+    >>> postgres_n_gis = ubuntu_server.create_app(PostgresServer, db_config)
+
+    >>> # To install a specific gis version
+    >>> db_config = {"db_pass":"password1", "db_name":"testdb1", "db_user":"test_db_user",
+    ...              "db_version": "9.6", "gis_version": "2.3"}
+
+    >>> # This will install postgres-9.6 gets installed with postgis-2.3
+    >>> postgres_n_gis = ubuntu_server.create_app(PostgresServer, db_config)
+
+
+Now postGIS is installed along with postgreSQL and enabled. You can
+begin to create your geographic objects and run location queries in SQL.
 
 
 Managing Nginx
