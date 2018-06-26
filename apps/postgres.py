@@ -94,8 +94,8 @@ class PostgresServer(BaseApp):
 
             self.create_db(dbname=db_name)
             self.create_db_user(user=db_user, passwd=passwd)
-            self.grant_permision(permission_type='All',
-                                 db=db_name, role_name=db_user)
+            self.grant_permission(permission_type='All',
+                                  db=db_name, role_name=db_user)
 
             data_dir = self.__get_data_dir(db_version)
             config_dir = self.__get_config_dir(db_version, )
@@ -162,7 +162,7 @@ class PostgresServer(BaseApp):
                     self.psql(command)
 
     @server_host_manager
-    def grant_permision(self, permission_type='All', db=None, role_name=None):
+    def grant_permission(self, permission_type='All', db=None, role_name=None):
         opts = dict(permission_type=permission_type, db=db, role_name=role_name)
         command = "GRANT {permission_type} ON DATABASE {db} TO {role_name}".format(**opts)
         self.psql(command)
@@ -170,6 +170,7 @@ class PostgresServer(BaseApp):
     @server_host_manager
     def create_postgis_db(self, db=None):
         with settings(warn_only=True):
+            self.psql("ALTER EXTENSION postgis UPDATE;")
             if db is not None:
                 self.create_db(dbname=db)
                 self.psql('CREATE EXTENSION postgis;', use_table=db)
