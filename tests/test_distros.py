@@ -5,14 +5,13 @@ import unittest
 
 from unittest.mock import patch
 
-from tests.utils import (fake_local, fake_run, fake_sed,
-                         fake_sudo, TestServerHostManager)
+from tests.utils import fake_local, fake_run, fake_sed, fake_sudo, TestServerHostManager
 
-patch('fabobjects.utils.server_host_manager', TestServerHostManager).start()
-patch('fabric.operations.local', fake_local).start()
-patch('fabric.operations.run', fake_run).start()
-patch('fabric.contrib.files.sed', fake_sed).start()
-patch('fabric.operations.sudo', fake_sudo).start()
+patch("fabobjects.utils.server_host_manager", TestServerHostManager).start()
+patch("fabric.operations.local", fake_local).start()
+patch("fabric.operations.run", fake_run).start()
+patch("fabric.contrib.files.sed", fake_sed).start()
+patch("fabric.operations.sudo", fake_sudo).start()
 
 
 # import classes after patching parts that make ssh calls
@@ -21,6 +20,7 @@ from fabobjects.distros import BaseServer, BSD, Debian, RedHat
 
 class TestApp(object):
     """Mocks an application"""
+
     def deploy(self):
         return True
 
@@ -49,9 +49,14 @@ class TestApp(object):
 class BaseServerTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.base_server = BaseServer(ip="127.0.0.1", user="tester", ssh_port=2222,
-                                     domain_name="example.com", hostname="test",
-                                     password="123456")
+        cls.base_server = BaseServer(
+            ip="127.0.0.1",
+            user="tester",
+            ssh_port=2222,
+            domain_name="example.com",
+            hostname="test",
+            password="123456",
+        )
 
     def test__repr__(self):
         self.assertTrue(hasattr(self.base_server, "__repr__"))
@@ -480,12 +485,17 @@ class BaseServerTestCase(unittest.TestCase):
 class BSDTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.base_server = BSD(ip="127.0.0.1", user="tester", ssh_port=2222,
-                              domain_name="example.com", hostname="test",
-                              password="123456")
+        cls.base_server = BSD(
+            ip="127.0.0.1",
+            user="tester",
+            ssh_port=2222,
+            domain_name="example.com",
+            hostname="test",
+            password="123456",
+        )
 
     def test_distro(self):
-        self.assertTrue(self.base_server.distro == 'BSD')
+        self.assertTrue(self.base_server.distro == "BSD")
 
     def test_uninstall(self):
         pass
@@ -506,12 +516,17 @@ class BSDTestCase(unittest.TestCase):
 class DebianTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.base_server = Debian(ip="127.0.0.1", user="tester",
-                                 ssh_port=2222, domain_name="example.com",
-                                 hostname="test", password="123456")
+        cls.base_server = Debian(
+            ip="127.0.0.1",
+            user="tester",
+            ssh_port=2222,
+            domain_name="example.com",
+            hostname="test",
+            password="123456",
+        )
 
     def test_distro(self):
-        self.assertTrue(self.base_server.distro == 'Debian')
+        self.assertTrue(self.base_server.distro == "Debian")
 
     def test_get_package_manager(self):
         self.assertEqual(self.base_server.get_package_manager(), "apt-get ")
@@ -529,9 +544,14 @@ class DebianTestCase(unittest.TestCase):
 class RedHatTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.base_server = RedHat(ip="127.0.0.1", user="tester", ssh_port=2222,
-                                 domain_name="example.com", hostname="test",
-                                 password="123456")
+        cls.base_server = RedHat(
+            ip="127.0.0.1",
+            user="tester",
+            ssh_port=2222,
+            domain_name="example.com",
+            hostname="test",
+            password="123456",
+        )
 
     def test_get_package_manager(self):
         self.assertEqual(self.base_server.get_package_manager(), "yum ")

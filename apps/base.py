@@ -6,6 +6,7 @@ class BaseApp(object):
     """
     A base application that implements minimal functions most apps should have.
     """
+
     def __init__(self, *args, **kwargs):
         pass
 

@@ -5,4 +5,4 @@ from apps.base import BaseApp
 
 
 class GitRepo(BaseApp):
-    home_dir = '/home/git'
+    home_dir = "/home/git"

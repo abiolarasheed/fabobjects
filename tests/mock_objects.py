@@ -1,5 +1,6 @@
 # !*-* coding:utf-8 *-*
 from __future__ import unicode_literals
+
 # Taken from https://prmtl.net/post/mocking-stdout-in-tests and add python 3 support
 
 """
@@ -20,7 +21,7 @@ class CCStringIO(StringIO):
     Taken from fabric.tests.mock_streams.CarbonCopy
     """
 
-    def __init__(self, buffer='', writers=None):
+    def __init__(self, buffer="", writers=None):
         """Init CCStringIO
 
         If ``writers`` is given and is a file-like object or an
@@ -30,7 +31,7 @@ class CCStringIO(StringIO):
         StringIO.__init__(self, buffer)
         if writers is None:
             writers = []
-        elif hasattr(writers, 'write'):
+        elif hasattr(writers, "write"):
             writers = [writers]
         self.writers = writers
 
@@ -42,7 +43,4 @@ class CCStringIO(StringIO):
 
 def mock_stdout():
     """Returns mock of sys.stdout with proxy to actual sys.stdout"""
-    return mock.patch(
-        'sys.stdout',
-        new=CCStringIO(writers=[sys.__stdout__])
-    )
+    return mock.patch("sys.stdout", new=CCStringIO(writers=[sys.__stdout__]))
