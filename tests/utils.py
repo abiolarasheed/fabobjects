@@ -39,8 +39,16 @@ def fake_local(command, *args, **kwargs):
     return command
 
 
-def fake_sed(filename, before, after, limit='', use_sudo=False, backup='.bak',
-    flags='', shell=False):
+def fake_sed(
+    filename,
+    before,
+    after,
+    limit="",
+    use_sudo=False,
+    backup=".bak",
+    flags="",
+    shell=False,
+):
     """
     Command for faking sed command to avoid local/remote ssh call or local file system operations.
     :param filename:
@@ -57,33 +65,33 @@ def fake_sed(filename, before, after, limit='', use_sudo=False, backup='.bak',
     func = use_sudo and fake_sudo or fake_run
     # Characters to be escaped in both
     for char in "/'":
-        before = before.replace(char, r'\%s' % char)
-        after = after.replace(char, r'\%s' % char)
+        before = before.replace(char, r"\%s" % char)
+        after = after.replace(char, r"\%s" % char)
     # Characters to be escaped in replacement only (they're useful in regexen
     # in the 'before' part)
     for char in "()":
-        after = after.replace(char, r'\%s' % char)
+        after = after.replace(char, r"\%s" % char)
     if limit:
-        limit = r'/%s/ ' % limit
+        limit = r"/%s/ " % limit
     context = {
-        'script': r"'%ss/%s/%s/%sg'" % (limit, before, after, flags),
-        'filename': _expand_path(filename),
-        'backup': backup
+        "script": r"'%ss/%s/%s/%sg'" % (limit, before, after, flags),
+        "filename": _expand_path(filename),
+        "backup": backup,
     }
     # Test the OS because of differences between sed versions
 
     platform = fake_run("uname")
 
-    if platform in ('NetBSD', 'OpenBSD', 'QNX'):
+    if platform in ("NetBSD", "OpenBSD", "QNX"):
         hasher = hashlib.sha1()
         hasher.update("test.example.com")
         hasher.update(filename)
-        context['tmp'] = "/tmp/%s" % hasher.hexdigest()
+        context["tmp"] = "/tmp/%s" % hasher.hexdigest()
         # Use temp file to work around lack of -i
         expr = r"""cp -p %(filename)s %(tmp)s && sed -r -e %(script)s %(filename)s > %(tmp)s && cp -p %(filename)s
          %(filename)s%(backup)s && mv %(tmp)s %(filename)s"""
     else:
-        context['extended_regex'] = '-E' if platform == 'Darwin' else '-r'
+        context["extended_regex"] = "-E" if platform == "Darwin" else "-r"
         expr = r"sed -i%(backup)s %(extended_regex)s -e %(script)s %(filename)s"
     command = expr % context
     return func(command, shell=shell)
@@ -91,6 +99,7 @@ def fake_sed(filename, before, after, limit='', use_sudo=False, backup='.bak',
 
 class TestServerHostManager(object):
     """A descriptor decorator useful for placing ServerHostManager for testing purpose."""
+
     def __init__(self, instance_method):
         self.func = instance_method
         self.func.__name__ = instance_method.__name__

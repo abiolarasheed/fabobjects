@@ -12,6 +12,7 @@ class RedisApp(BaseApp):
     """
     A Redis class that defines a set of methods that's used by both redis server and redis client class.
     """
+
     def redis_cli(self, command):
         """
         Run redis command
@@ -19,8 +20,7 @@ class RedisApp(BaseApp):
         :return:
         """
         if self.redis_password is not None:
-            command = "redis-cli -a {0} {1}".\
-                format(self.redis_password, command)
+            command = "redis-cli -a {0} {1}".format(self.redis_password, command)
 
         else:
             command = "redis-cli {0}".format(command)
@@ -32,6 +32,7 @@ class RedisServer(RedisApp):
     """
     A Redis server class, this class installs and sets up a redis server on a host server.
     """
+
     def __init__(self, *args, **kwargs):
         """
         :param int service_port = Port to listen for connections, defaults to 6379.
@@ -43,11 +44,11 @@ class RedisServer(RedisApp):
                              by default this is set to `False`
         """
         super(RedisServer, self).__init__(*args, **kwargs)
-        self.service_name = 'redis-server'
-        self.service_port = kwargs.get('service_port', '6379')
-        self.maxmemory = kwargs.get('maxmemory', None)
-        self.exposed_ip = kwargs.get('exposed_ip', None)
-        self.redis_password = kwargs.get('redis_password', None)
+        self.service_name = "redis-server"
+        self.service_port = kwargs.get("service_port", "6379")
+        self.maxmemory = kwargs.get("maxmemory", None)
+        self.exposed_ip = kwargs.get("exposed_ip", None)
+        self.redis_password = kwargs.get("redis_password", None)
         self.allowed_ip = kwargs.get("allowed_ip", None)
         self.public = kwargs.get("public", False)
 
@@ -63,7 +64,7 @@ class RedisServer(RedisApp):
         A method for reload the redis.
         :return: None
         """
-        return self.service('{0} force-reload'.format(self.service_name))
+        return self.service("{0} force-reload".format(self.service_name))
 
     def start(self):
         """
@@ -92,7 +93,7 @@ class RedisServer(RedisApp):
         Install and configure redis on a server.
         :return: None
         """
-        self.install_package('redis-server')
+        self.install_package("redis-server")
 
         if self.redis_password is not None:
             self.set_password(pswd=self.redis_password)
@@ -111,15 +112,15 @@ class RedisServer(RedisApp):
         :param str maxmemory:
         :return:
         """
-        afile = shell_safe('/etc/redis/redis.conf')
+        afile = shell_safe("/etc/redis/redis.conf")
 
         if maxmemory is None:
             if self.maxmemory is None:
-                self.maxmemory = '256mb'
+                self.maxmemory = "256mb"
             maxmemory = self.maxmemory
 
-        self.echo('maxmemory {0}'.format(maxmemory), to=afile,)
-        self.echo('maxmemory-policy allkeys-lru', to=afile,)
+        self.echo("maxmemory {0}".format(maxmemory), to=afile)
+        self.echo("maxmemory-policy allkeys-lru", to=afile)
 
     @server_host_manager
     def make_public(self, ip="0.0.0.0"):
@@ -128,8 +129,8 @@ class RedisServer(RedisApp):
         :param ip: The ip redis will be listening on.
         :return: None
         """
-        afile = shell_safe('/etc/redis/redis.conf')
-        self.sed(afile, 'bind 127.0.0.1', 'bind {0}'.format(ip), use_sudo=True)
+        afile = shell_safe("/etc/redis/redis.conf")
+        self.sed(afile, "bind 127.0.0.1", "bind {0}".format(ip), use_sudo=True)
 
     @server_host_manager
     def change_port(self, port):
@@ -144,11 +145,11 @@ class RedisServer(RedisApp):
             print("Value error: port must be an int".format(err))
             raise err
 
-        new_port = 'port {0}'.format(port)
-        old_port = 'port {0}'.format(self.service_port)
+        new_port = "port {0}".format(port)
+        old_port = "port {0}".format(self.service_port)
 
-        afile = shell_safe('/etc/redis/redis.conf')
-        self.sed(afile, old_port, new_port, use_sudo=True,)
+        afile = shell_safe("/etc/redis/redis.conf")
+        self.sed(afile, old_port, new_port, use_sudo=True)
         self.service_port = port
 
     @server_host_manager
@@ -158,13 +159,17 @@ class RedisServer(RedisApp):
         :param str pswd: A strong pass word
         :return: None
         """
-        afile = shell_safe('/etc/redis/redis.conf')
+        afile = shell_safe("/etc/redis/redis.conf")
 
         if pswd is None:
-            raise RuntimeError('You did not enter password')
+            raise RuntimeError("You did not enter password")
 
-        self.sed(afile, '# requirepass foobared',
-                 'requirepass {0}'.format(pswd), use_sudo=True)
+        self.sed(
+            afile,
+            "# requirepass foobared",
+            "requirepass {0}".format(pswd),
+            use_sudo=True,
+        )
 
         if self.redis_password != pswd:
             self.redis_password = pswd
@@ -181,13 +186,16 @@ class RedisServer(RedisApp):
         if type(self.allowed_ip) != list:
             self.allowed_ip = [self.allowed_ip]
 
-        [self.firewall_allow_form_to(host=host,
-                                     to=self.exposed_ip,
-                                     proto='tcp',
-                                     port=self.service_port) for host in self.allowed_ip]
+        [
+            self.firewall_allow_form_to(
+                host=host, to=self.exposed_ip, proto="tcp", port=self.service_port
+            )
+            for host in self.allowed_ip
+        ]
 
-    def enable_ssl(self, domain=None, country_iso=None,
-                   state=None, city=None, company_name=None):
+    def enable_ssl(
+        self, domain=None, country_iso=None, state=None, city=None, company_name=None
+    ):
         """
         Enable ssl connection on redis server
         :param str domain: The website domain name
@@ -207,12 +215,19 @@ class RedisServer(RedisApp):
         ssl_dir = shell_safe("/etc/stunnel/")
         combined_cert = os.path.join(ssl_dir, os.path.join("certs", "private.pem"))
 
-        self.generate_self_signed_ssl(domain=domain, cert_dir=ssl_dir,
-                                      country_iso=country_iso, state=state,
-                                      city=city, company_name=company_name)
+        self.generate_self_signed_ssl(
+            domain=domain,
+            cert_dir=ssl_dir,
+            country_iso=country_iso,
+            state=state,
+            city=city,
+            company_name=company_name,
+        )
 
         ssl_dir = os.path.join(ssl_dir, "certs")
-        self.sudo("cat {0}/{1}.key {0}/{1}.crt > {2}".format(ssl_dir, domain, combined_cert))
+        self.sudo(
+            "cat {0}/{1}.key {0}/{1}.crt > {2}".format(ssl_dir, domain, combined_cert)
+        )
         self.sudo("chmod 640 {0}".format(combined_cert))
 
         #  Configure stunnel to use our self signed ssl cert
@@ -223,8 +238,8 @@ class RedisServer(RedisApp):
         self.echo("connect = 127.0.0.1:6379", to=conf_file)
 
         # Ensure redis is listening on localhost since stunnel is listen on the public ip
-        afile = shell_safe('/etc/redis/redis.conf')
-        self.sed(afile, 'bind 0.0.0.0', 'bind 127.0.0.1', use_sudo=True)
+        afile = shell_safe("/etc/redis/redis.conf")
+        self.sed(afile, "bind 0.0.0.0", "bind 127.0.0.1", use_sudo=True)
 
         self.service_restart("redis")
         self.service_start("stunnel4")
@@ -235,6 +250,7 @@ class RedisSslClient(RedisApp):
     A Redis ssl client, this class installs and sets up a redis client to talk to a remote redis server over an
     ssl connection.
     """
+
     def __init__(self, *args, **kwargs):
         """
         Initializes the redis ssl client connection.
@@ -242,9 +258,9 @@ class RedisSslClient(RedisApp):
         :param str server_cert: Path on your local file system to the server private.pem
         """
         super(RedisSslClient, self).__init__(*args, **kwargs)
-        self.server_ip = kwargs.get('server_ip', None)
-        self.server_cert = kwargs.get('server_cert', None)
-        self.redis_password = kwargs.get('redis_password', None)
+        self.server_ip = kwargs.get("server_ip", None)
+        self.server_cert = kwargs.get("server_cert", None)
+        self.redis_password = kwargs.get("redis_password", None)
 
     def deploy(self):
         """
@@ -252,7 +268,9 @@ class RedisSslClient(RedisApp):
         :return:
         """
         afile = shell_safe("/etc/default/stunnel4")
-        combined_cert = shell_safe(os.path.join("/etc/stunnel/", self.server_cert.split('/')[-1]))
+        combined_cert = shell_safe(
+            os.path.join("/etc/stunnel/", self.server_cert.split("/")[-1])
+        )
 
         self.install_package("redis-tools stunnel4")
         self.sed(afile, "ENABLED=0", "ENABLED=1", use_sudo=True)
